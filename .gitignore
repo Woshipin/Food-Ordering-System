@@ -1,0 +1,11 @@
+/frontend
+/node_modules
+/vendor
+.env
+.DS_Store
+*.log
+/public/storage
+/storage/*.key
+.idea
+.vscode
+npm-debug.log
