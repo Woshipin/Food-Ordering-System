@@ -28,52 +28,77 @@ import { useAuth } from "../../../context/AuthContext";
 import { useLanguage } from "../../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
 import { Toaster, toast } from "sonner";
-import { post as apiPost } from "../../../lib/axios";
- 
- export default function LoginPage() {
-   const { t } = useLanguage();
-   const { login } = useAuth();
+import axios from "../../../lib/axios";
+
+export default function LoginPage() {
+  // 使用语言切换钩子
+  const { t } = useLanguage();
+  // 使用认证钩子
+  const { login } = useAuth();
+  // 控制密码是否可见的状态
   const [showPassword, setShowPassword] = useState(false);
+  // 控制加载状态
   const [isLoading, setIsLoading] = useState(false);
+  // 表单数据状态
   const [formData, setFormData] = useState({
     email: "sss@gmail.com",
     password: "••••••••",
     rememberMe: false,
   });
 
+  // 处理表单提交
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault(); // 阻止表单默认提交行为
+    setIsLoading(true); // 开始加载
 
     try {
-      const response = await apiPost("/login", {
+      // 发送登录请求到后端 /api/auth/login
+      const response = await axios.post("/auth/login", {
         email: formData.email,
         password: formData.password,
       });
-      const data = response.data;
+      const { access_token } = response.data; // 从响应中获取 access_token
 
+      // 登录成功后，使用获取到的 token 去获取用户信息
+      const userResponse = await axios.get("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${access_token}`, // 在请求头中附带 token
+        },
+      });
+
+      // 显示成功提示
       toast.success(t("loginSuccess"));
-      login(data.user, data.access_token);
-      // Redirect to profile page
+      // 调用 AuthContext 中的 login 方法，保存用户信息和 token
+      login(userResponse.data, access_token);
+      
+      // 2秒后重定向到首页
       setTimeout(() => {
         window.location.href = "/";
       }, 2000);
     } catch (error: any) {
-        if (error.response && error.response.data && error.response.data.message) {
-            toast.error(error.response.data.message);
-        } else {
-            toast.error(t("loginFailed"));
-        }
+      // 处理登录失败的情况
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
+        // 如果后端返回了具体的错误信息，则显示它
+        toast.error(error.response.data.message);
+      } else {
+        // 否则显示通用的登录失败信息
+        toast.error(t("loginFailed"));
+      }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // 结束加载
     }
   };
 
+  // 处理表单输入变化
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : value, // 根据输入类型更新表单数据
     }));
   };
 
@@ -184,10 +209,10 @@ import { post as apiPost } from "../../../lib/axios";
                           id="rememberMe"
                           name="rememberMe"
                           checked={formData.rememberMe}
-                          onCheckedChange={(checked) =>
+                          onCheckedChange={(checked: boolean) =>
                             setFormData((prev) => ({
                               ...prev,
-                              rememberMe: checked as boolean,
+                              rememberMe: checked,
                             }))
                           }
                         />
