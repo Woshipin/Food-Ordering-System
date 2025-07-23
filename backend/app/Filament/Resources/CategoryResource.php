@@ -23,9 +23,10 @@ class CategoryResource extends Resource
     protected static ?string $model = Category::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
+    protected static ?string $navigationGroup = 'Category Management'; // 导航分组名称
+    protected static ?string $label = 'Categories'; // 资源标签
 
-    // protected static ?string $navigationGroup = 'Fishing CMS';
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 0;
 
     public static function getNavigationBadge(): ?string
     {
