@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { useLanguage } from "../../components/LanguageProvider"
 import { LanguageSwitcher } from "../../components/LanguageSwitcher"
+import axios from "../../lib/axios"
 
 // Type Definitions for clarity
 interface MenuItemData {
@@ -33,40 +34,34 @@ interface Category {
 
 // API Fetching Logic
 async function fetchMenus(t: (key: string) => string) {
-  const response = await fetch("http://127.0.0.1:8000/api/menus");
-  if (!response.ok) {
-    throw new Error("Failed to fetch menu data");
-  }
-  const data = await response.json();
+  try {
+    const response = await axios.get("/menus");
+    const data = response.data;
 
-  // Log the data to check its structure
-  console.log("API Response:", data);
-
-  // Check if data is an array directly, or if it contains the expected structure
-  if (Array.isArray(data)) {
-    return data.map((item: any) => ({
-      ...item,
-      images: item.images?.length > 0
-        ? item.images.map((img: { url: string }) => `http://127.0.0.1:8000${img.url}`)
-        : ["/placeholder.svg?height=300&width=400"],
-    }));
-  } else {
-    console.error("Expected data to be an array or have a 'data' property, but got:", data);
-    return []; // Return an empty array or handle it as per your requirements
+    if (Array.isArray(data)) {
+      return data.map((item: any) => ({
+        ...item,
+        images: item.images?.length > 0
+          ? item.images.map((img: { url: string }) => `http://127.0.0.1:8000${img.url}`)
+          : ["/placeholder.svg?height=300&width=400"],
+      }));
+    } else {
+      console.error("Expected data to be an array or have a 'data' property, but got:", data);
+      return [];
+    }
+  } catch (error) {
+    console.error("Error fetching menus:", error);
+    return [];
   }
 }
 
 async function fetchCategories() {
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/categories");
-    if (!response.ok) {
-      throw new Error("Failed to fetch categories data");
-    }
-    const data = await response.json();
-    return data; // Ensure this matches the structure you expect
+    const response = await axios.get("/categories");
+    return response.data;
   } catch (error) {
     console.error("Error fetching categories:", error);
-    return []; // Return an empty array or handle the error as needed
+    return [];
   }
 }
 
@@ -337,7 +332,6 @@ export default function MenuPage() {
       const matchesSearch =
         (item.name?.toLowerCase() || "").includes(searchTermLower) ||
         (item.description?.toLowerCase() || "").includes(searchTermLower);
-
       const matchesCategory = selectedCategory === "all" || item.category?.id === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -376,7 +370,6 @@ export default function MenuPage() {
               </Button>
             </div>
           </div>
-
           {loading && (
             <div className="text-center py-20">
               <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto"></div>
