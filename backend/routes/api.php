@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MenuPackageController;
 
@@ -15,6 +16,9 @@ Route::group([
     Route::post('refresh', [AuthController::class, 'refresh']);
     Route::get('me', [AuthController::class, 'me']);
 });
+
+// Get All Category Data
+Route::get('/categories', [CategoryController::class, 'index']);
 
 // Get All Menu Data
 Route::get('/menus', [MenuController::class, 'index']);
