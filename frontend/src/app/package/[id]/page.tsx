@@ -1,307 +1,483 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Heart, Clock, Users, Package } from "lucide-react"
-import { Button } from "../../../components/ui/button"
-import { Card, CardContent } from "../../../components/ui/card"
-import { Badge } from "../../../components/ui/badge"
-import { Separator } from "../../../components/ui/separator"
-import { useLanguage } from "../../../components/LanguageProvider"
-import { LanguageSwitcher } from "../../../components/LanguageSwitcher"
+import { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  ArrowLeft,
+  Plus,
+  Minus,
+  ShoppingCart,
+  Package,
+  AlertTriangle,
+  Loader,
+  Star,
+} from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Separator } from "../../../components/ui/separator";
+import { useLanguage } from "../../../components/LanguageProvider";
+import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
+import axios from "../../../lib/axios";
 
-export default function PackageDetailPage({ params }: { params: { id: string } }) {
-  const { t } = useLanguage()
-  const [quantity, setQuantity] = useState(1)
+// --- Type Definitions ---
+// These types now precisely match the structure from MenuPackageController@show
+interface Variant {
+  id: number;
+  name: string;
+  price_modifier: number;
+}
 
-  // Mock data - in real app, fetch based on params.id
-  const packageItem = {
-    id: Number.parseInt(params.id),
-    name: t("familyPackageA"),
-    price: 88.0,
-    originalPrice: 120.0,
-    images: [
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600&text=Package2",
-      "/placeholder.svg?height=400&width=600&text=Package3",
-    ],
-    rating: 4.8,
-    reviews: 156,
-    description: t("familyPackageADetailDesc"),
-    serves: t("serves3_4"),
-    items: [
-      { name: t("signatureBeefNoodles"), quantity: 2, description: t("beefNoodlesDescShort") },
-      { name: t("steamedDumplings"), quantity: 1, description: t("dumplingsDescShort") },
-      { name: t("hotAndSourSoupX1"), quantity: 1, description: t("hotAndSourSoupDesc") },
-      { name: t("freshOrangeJuice"), quantity: 2, description: t("orangeJuiceDescShort") },
-    ],
-    nutritionInfo: {
-      calories: 2100,
-      protein: "85g",
-      carbs: "280g",
-      fat: "65g",
-    },
-    cookTime: t("cookTime25_30"),
-    isPopular: true,
-    discount: "27% OFF",
-    recommendations: [
-      {
-        id: 2,
-        name: t("couplesPackage"),
-        price: 58.0,
-        image: "/placeholder.svg?height=200&width=300",
-        rating: 4.9,
-        serves: t("serves2"),
-      },
-      {
-        id: 3,
-        name: t("businessLunch"),
-        price: 35.0,
-        image: "/placeholder.svg?height=200&width=300",
-        rating: 4.7,
-        serves: t("serves1"),
-      },
-    ],
-  }
+interface Addon {
+  id: number;
+  name: string;
+  price: number;
+}
 
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+interface Menu {
+  id: number;
+  name: string;
+  description: string;
+  base_price: number;
+  addons: Addon[];
+  variants: Variant[];
+}
+
+interface PackageData {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  image_url: string;
+  menus: Menu[];
+}
+
+// --- Main Component ---
+export default function PackageDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const { t } = useLanguage();
+
+  const [packageItem, setPackageItem] = useState<PackageData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedVariants, setSelectedVariants] = useState<
+    Record<number, number>
+  >({});
+  const [selectedAddons, setSelectedAddons] = useState<
+    Record<number, number[]>
+  >({});
+
+  const fetchPackage = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`/menu-packages/${id}`);
+      // Correctly access the data nested under the 'data' key
+      setPackageItem(response.data.data);
+    } catch (err) {
+      setError(
+        t("errorFetchingPackage") ||
+          "Could not load the package details. Please try again later."
+      );
+      console.error("Failed to fetch package:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, t]);
+
+  useEffect(() => {
+    if (id) {
+      fetchPackage();
+    }
+  }, [id, fetchPackage]);
+
+  const handleVariantChange = (menuId: number, variantId: number) => {
+    setSelectedVariants((prev) => ({ ...prev, [menuId]: variantId }));
+  };
+
+  const handleAddonToggle = (menuId: number, addonId: number) => {
+    setSelectedAddons((prev) => {
+      const currentAddons = prev[menuId] || [];
+      const newAddons = currentAddons.includes(addonId)
+        ? currentAddons.filter((id) => id !== addonId)
+        : [...currentAddons, addonId];
+      return { ...prev, [menuId]: newAddons };
+    });
+  };
+
+  const calculateTotalPrice = useCallback(() => {
+    if (!packageItem) return 0;
+
+    let total = packageItem.price;
+
+    packageItem.menus.forEach((menu) => {
+      // Add base price of each menu
+      total += menu.base_price;
+
+      // Add selected variant price modifier
+      const variantId = selectedVariants[menu.id];
+      if (variantId) {
+        const variant = menu.variants.find((v) => v.id === variantId);
+        if (variant) {
+          total += variant.price_modifier;
+        }
+      }
+
+      // Add selected addons prices
+      const addonIds = selectedAddons[menu.id] || [];
+      addonIds.forEach((addonId) => {
+        const addon = menu.addons.find((a) => a.id === addonId);
+        if (addon) {
+          total += addon.price;
+        }
+      });
+    });
+
+    return total * quantity;
+  }, [packageItem, selectedVariants, selectedAddons, quantity]);
 
   const addToCart = () => {
-    console.log(`Added ${quantity} x ${packageItem.name} to cart`)
-  }
+    // This is where you would dispatch to a global state manager like Redux or Zustand
+    console.log({
+      message: `Added ${quantity} x ${packageItem?.name} to cart.`,
+      packageId: packageItem?.id,
+      quantity,
+      selections: {
+        variants: selectedVariants,
+        addons: selectedAddons,
+      },
+      totalPrice: calculateTotalPrice().toFixed(2),
+    });
+  };
 
-  const totalPrice = packageItem.price * quantity
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/packages">
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">{t("packageDetailTitle")}</h1>
-            </div>
-            <LanguageSwitcher />
+  // --- Render Logic ---
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md w-full border border-orange-100">
+          <div className="relative">
+            <Loader className="h-16 w-16 animate-spin text-orange-500 mx-auto mb-6" />
+            <div className="absolute inset-0 h-16 w-16 mx-auto rounded-full bg-orange-100 opacity-20 animate-pulse"></div>
           </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Image Gallery */}
-          <div className="space-y-4">
-            <div className="relative aspect-[4/3] rounded-xl overflow-hidden">
-              <Image
-                src={packageItem.images[currentImageIndex] || "/placeholder.svg"}
-                alt={packageItem.name}
-                fill
-                className="object-cover"
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute top-4 right-4 bg-white/80 hover:bg-white rounded-full"
-              >
-                <Heart className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto">
-              {packageItem.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentImageIndex(index)}
-                  className={`relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-colors ${
-                    currentImageIndex === index ? "border-orange-500" : "border-gray-200"
-                  }`}
-                >
-                  <Image
-                    src={image || "/placeholder.svg"}
-                    alt={`${packageItem.name} ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Info */}
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-start justify-between mb-2">
-                <h1 className="text-3xl font-bold text-gray-900">{packageItem.name}</h1>
-                <div className="flex gap-2">
-                  {packageItem.isPopular && <Badge className="bg-red-500 hover:bg-red-600">{t("popular")}</Badge>}
-                  {packageItem.discount && (
-                    <Badge className="bg-orange-500 hover:bg-orange-600">{packageItem.discount}</Badge>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center text-yellow-500">
-                  <Star className="h-5 w-5 fill-current" />
-                  <span className="ml-1 font-semibold">{packageItem.rating}</span>
-                </div>
-                <span className="text-gray-600">({packageItem.reviews} {t("reviews")})</span>
-                <div className="flex items-center text-gray-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  <span className="text-sm">{packageItem.serves}</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-4 w-4 mr-1" />
-                  <span className="text-sm">{packageItem.cookTime}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-orange-500">¥{packageItem.price}</span>
-                {packageItem.originalPrice && (
-                  <span className="text-xl text-gray-400 line-through">¥{packageItem.originalPrice}</span>
-                )}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Description */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{t("packageIntroduction")}</h3>
-              <p className="text-gray-600 leading-relaxed">{packageItem.description}</p>
-            </div>
-
-            {/* Package Items */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center">
-                <Package className="h-5 w-5 mr-2" />
-                {t("packageIncludes")}
-              </h3>
-              <div className="space-y-3">
-                {packageItem.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{item.name}</div>
-                      <div className="text-sm text-gray-600">{item.description}</div>
-                    </div>
-                    <div className="text-sm font-medium text-orange-600">x{item.quantity}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quantity and Add to Cart */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-3">{t("quantity")}</h3>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-10 w-10 rounded-lg bg-transparent"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="font-semibold text-xl min-w-[40px] text-center">{quantity}</span>
-                    <Button
-                      size="icon"
-                      className="h-10 w-10 bg-orange-500 hover:bg-orange-600 rounded-lg"
-                      onClick={() => setQuantity(quantity + 1)}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-500">{t("totalPrice")}: ¥{totalPrice.toFixed(2)}</div>
-                </div>
-              </div>
-
-              <Button className="w-full bg-orange-500 hover:bg-orange-600 text-lg py-6 rounded-xl" onClick={addToCart}>
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                {t("addToCart")} ¥{totalPrice.toFixed(2)}
-              </Button>
-            </div>
-
-            {/* Nutrition Info */}
-            <Card className="rounded-xl">
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3">{t("nutritionInfoTotal")}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">{t("totalCalories")}</span>
-                    <div className="font-semibold">{packageItem.nutritionInfo.calories} {t("caloriesUnit")}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">{t("protein")}</span>
-                    <div className="font-semibold">{packageItem.nutritionInfo.protein}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">{t("carbs")}</span>
-                    <div className="font-semibold">{packageItem.nutritionInfo.carbs}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">{t("fat")}</span>
-                    <div className="font-semibold">{packageItem.nutritionInfo.fat}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Recommendations */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold mb-8">{t("recommendedPackages")}</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {packageItem.recommendations.map((item) => (
-              <Card
-                key={item.id}
-                className="overflow-hidden hover:shadow-lg transition-all duration-300 rounded-xl h-72"
-              >
-                <Link href={`/packages/${item.id}`} className="block">
-                  <div className="h-36 relative">
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.name}
-                      width={300}
-                      height={144}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </Link>
-                <CardContent className="p-4 h-36 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 line-clamp-1">{item.name}</h4>
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <div className="flex items-center text-yellow-500">
-                        <Star className="h-3 w-3 fill-current" />
-                        <span className="ml-1">{item.rating}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Users className="h-3 w-3 mr-1" />
-                        <span>{item.serves}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-orange-500">¥{item.price}</span>
-                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600 rounded-lg">
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            {t("loadingPackage") || "Loading Package..."}
+          </h2>
+          <p className="text-gray-600">
+            {t("loadingMessage") || "Please wait while we prepare your delicious package details"}
+          </p>
+          <div className="mt-6 flex justify-center space-x-2">
+            <div className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"></div>
+            <div className="h-2 w-2 bg-orange-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+            <div className="h-2 w-2 bg-orange-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md w-full border border-red-200">
+          <div className="relative mb-6">
+            <AlertTriangle className="h-16 w-16 text-red-500 mx-auto" />
+            <div className="absolute inset-0 h-16 w-16 mx-auto rounded-full bg-red-100 opacity-30 animate-pulse"></div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            {t("errorOccurred") || "Oops! Something went wrong"}
+          </h2>
+          <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
+          <Button
+            onClick={fetchPackage}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-3 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            {t("retry") || "Try Again"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!packageItem) {
+    return null; // Or a more descriptive "Not Found" component
+  }
+
+  // Sub-components for better organization
+  const MenuHeader = () => {
+    const { t } = useLanguage();
+    return (
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 shadow-2xl backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Link href="/">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20 rounded-xl transition-all duration-300 cursor-pointer hover:scale-110"
+                >
+                  <ArrowLeft className="h-5 w-5 text-white" />
+                </Button>
+              </Link>
+              <h1 className="text-xl md:text-2xl font-bold text-white">
+                {t("packageDetailTitle") || "Package Detail"}
+              </h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <LanguageSwitcher />
+              <Link href="/cart">
+                <Button className="relative bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-medium transition-all duration-300 hover:scale-105 rounded-xl cursor-pointer">
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  <span className="hidden sm:inline">{t("cart")}</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  };
+
+  const totalPrice = calculateTotalPrice();
+  const fullImageUrl = packageItem.image_url.startsWith("http")
+    ? packageItem.image_url
+    : `http://127.0.0.1:8000${packageItem.image_url}`;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+      {/* Header */}
+      <MenuHeader />
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        <div className="grid lg:grid-cols-5 gap-6 md:gap-8 xl:gap-12">
+          {/* Left Column: Package Details & Menu Customization */}
+          <div className="lg:col-span-3 space-y-6 md:space-y-8">
+            {/* LARGE SECTION: Main Package Info */}
+            <section className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-orange-100 hover:shadow-2xl transition-all duration-300">
+              <div className="relative aspect-video rounded-2xl overflow-hidden mb-6 shadow-2xl group">
+                <Image
+                  src={fullImageUrl}
+                  alt={packageItem.name}
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  onError={(e) => {
+                    e.currentTarget.src =
+                      "/placeholder.svg?height=400&width=600";
+                  }}
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                <div className="flex-1">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 mb-3 leading-tight">
+                    {packageItem.name}
+                  </h1>
+                  <p className="text-gray-600 leading-relaxed text-base md:text-lg">
+                    {packageItem.description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200 flex-shrink-0">
+                  <Star className="h-5 w-5 text-orange-500 fill-orange-500" />
+                  <span className="font-bold text-gray-800">4.8</span>
+                  <span className="text-sm text-gray-500 hidden sm:inline">
+                    (156 {t("reviews")})
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* LARGE SECTION: Menu Items */}
+            <section className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-orange-100 hover:shadow-2xl transition-all duration-300">
+              <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8 flex items-center text-gray-900">
+                <div className="p-3 bg-orange-100 rounded-xl mr-4">
+                  <Package className="h-6 w-6 md:h-7 md:w-7 text-orange-600" />
+                </div>
+                {t("packageIncludes") || "What's Inside"}
+              </h2>
+              <div className="space-y-6 md:space-y-8">
+                {packageItem.menus.map((menu, index) => (
+                  // SMALL SECTION: Individual Menu Item
+                  <div
+                    key={menu.id}
+                    className="p-4 md:p-6 border-2 border-orange-100 rounded-2xl transition-all duration-300 hover:shadow-lg hover:border-orange-200 bg-gradient-to-r from-white to-orange-50/30"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <h3 className="font-bold text-lg md:text-xl text-gray-900 flex-1">
+                        {menu.name}
+                      </h3>
+                      <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium ml-4">
+                        #{index + 1}
+                      </span>
+                    </div>
+
+                    {/* Variants */}
+                    {menu.variants && menu.variants.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="font-semibold text-base md:text-lg mb-4 text-gray-800 flex items-center">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
+                          {t("selectVariant") || "Select Variant"}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
+                          {menu.variants.map((variant) => (
+                            <label
+                              key={variant.id}
+                              className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${
+                                selectedVariants[menu.id] === variant.id
+                                  ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200"
+                                  : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`variant-${menu.id}`}
+                                checked={
+                                  selectedVariants[menu.id] === variant.id
+                                }
+                                onChange={() =>
+                                  handleVariantChange(menu.id, variant.id)
+                                }
+                                className="hidden"
+                              />
+                              <div className={`w-4 h-4 rounded-full border-2 mr-3 flex-shrink-0 ${
+                                selectedVariants[menu.id] === variant.id
+                                  ? "border-orange-500 bg-orange-500"
+                                  : "border-gray-300"
+                              }`}>
+                                {selectedVariants[menu.id] === variant.id && (
+                                  <div className="w-2 h-2 bg-white rounded-full m-auto mt-0.5"></div>
+                                )}
+                              </div>
+                              <span className="font-medium text-gray-800 flex-1">
+                                {variant.name}
+                              </span>
+                              {variant.price_modifier > 0 && (
+                                <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">
+                                  +RM{variant.price_modifier.toFixed(2)}
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add-ons */}
+                    {menu.addons && menu.addons.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-base md:text-lg mb-4 text-gray-800 flex items-center">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
+                          {t("chooseAddons") || "Choose Add-ons"}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {menu.addons.map((addon) => (
+                            <label
+                              key={addon.id}
+                              className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${
+                                selectedAddons[menu.id]?.includes(addon.id)
+                                  ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200"
+                                  : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedAddons[menu.id]?.includes(addon.id) ||
+                                  false
+                                }
+                                onChange={() =>
+                                  handleAddonToggle(menu.id, addon.id)
+                                }
+                                className={`h-5 w-5 rounded border-2 cursor-pointer transition-all duration-200 ${
+                                  selectedAddons[menu.id]?.includes(addon.id)
+                                    ? "bg-orange-500 border-orange-500 text-white"
+                                    : "border-gray-300 hover:border-orange-400"
+                                }`}
+                              />
+                              <span className="font-medium text-gray-800 ml-3 flex-1">
+                                {addon.name}
+                              </span>
+                              {addon.price > 0 && (
+                                <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg ml-auto">
+                                  +RM{addon.price.toFixed(2)}
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column: Summary & Actions (Sticky) */}
+          <aside className="lg:col-span-2">
+            <div className="sticky top-28 space-y-6">
+              <section className="bg-white p-6 rounded-2xl shadow-lg border border-orange-100">
+                <h2 className="text-2xl font-bold mb-6">
+                  {t("summary") || "Summary"}
+                </h2>
+                <div className="space-y-6">
+                  {/* Quantity Selector */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-gray-800">
+                      {t("quantity") || "Quantity"}
+                    </h3>
+                    <div className="flex items-center justify-between gap-4 p-1 rounded-xl border-2 border-orange-200 bg-orange-50 w-fit">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 bg-orange-500 hover:bg-orange-600 rounded-lg cursor-pointer text-white"
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        >
+                          <Minus className="h-5 w-5" />
+                        </Button>
+                        <span className="font-bold text-xl min-w-[30px] text-center text-gray-900">
+                          {quantity}
+                        </span>
+                        <Button
+                          size="icon"
+                          className="h-9 w-9 bg-orange-500 hover:bg-orange-600 rounded-lg cursor-pointer text-white"
+                          onClick={() => setQuantity(quantity + 1)}
+                        >
+                          <Plus className="h-5 w-5" />
+                        </Button>
+                      </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Total Price */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-800">
+                      {t("totalPrice") || "Total Price"}
+                    </span>
+                    <span className="text-3xl font-extrabold text-orange-600">
+                      RM{totalPrice.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Add to Cart Button */}
+                  <Button
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg font-bold py-7 rounded-xl cursor-pointer transition-transform transform hover:scale-105"
+                    onClick={addToCart}
+                  >
+                    <ShoppingCart className="mr-3 h-6 w-6" />
+                    {t("addToCart") || "Add to Cart"}
+                  </Button>
+                </div>
+              </section>
+            </div>
+          </aside>
+          
+        </div>
+      </main>
     </div>
-  )
+  );
 }
