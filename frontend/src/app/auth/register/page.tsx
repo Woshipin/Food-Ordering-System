@@ -45,6 +45,8 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone_number: "",
+    user_image: "",
     password: "",
     password_confirmation: "",
     agreeToTerms: false,
@@ -206,6 +208,27 @@ export default function RegisterPage() {
                           placeholder={t("emailPlaceholder")}
                           className="pl-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                           required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="phone_number"
+                        className="text-gray-700 font-medium"
+                      >
+                        {t("phoneNumber")}
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          id="phone_number"
+                          name="phone_number"
+                          type="text"
+                          value={formData.phone_number}
+                          onChange={handleChange}
+                          placeholder={t("phoneNumberPlaceholder")}
+                          className="pl-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                         />
                       </div>
                     </div>

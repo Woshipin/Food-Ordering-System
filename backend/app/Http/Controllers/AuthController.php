@@ -65,6 +65,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'user_image' => 'nullable|string',
+            'phone_number' => 'nullable|string',
         ]);
 
         // 创建新用户
@@ -72,6 +74,8 @@ class AuthController extends Controller
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
+            'user_image' => $validatedData['user_image'] ?? null,
+            'phone_number' => $validatedData['phone_number'] ?? null,
         ]);
 
         // 为新注册的用户生成 token
@@ -130,6 +134,31 @@ class AuthController extends Controller
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth('api')->factory()->getTTL() * 60
+        ]);
+    }
+
+    /**
+     * Update the authenticated user's profile.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = auth('api')->user();
+
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'user_image' => 'nullable|string',
+            'phone_number' => 'nullable|string',
+        ]);
+
+        $user->update($validatedData);
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => $user
         ]);
     }
 }

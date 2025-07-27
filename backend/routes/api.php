@@ -17,6 +17,7 @@ Route::group([
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('refresh', [AuthController::class, 'refresh']);
     Route::get('me', [AuthController::class, 'me']);
+    Route::put('/user/profile', [AuthController::class, 'updateProfile']);
 });
 
 // Get All Category Data
