@@ -406,22 +406,7 @@ class MenuResource extends Resource
 
                 // 创建一个开关列用于显示和修改菜单状态
                 ToggleColumn::make('menu_status')
-                    // 设置列标题
-                    ->label('Status')
-                    // 设置开启状态的图标
-                    ->onIcon('heroicon-o-check-circle')
-                    // 设置关闭状态的图标
-                    ->offIcon('heroicon-o-x-circle')
-                    // 设置开启状态的颜色
-                    ->onColor('success')
-                    // 设置关闭状态的颜色
-                    ->offColor('danger')
-                    // 允许排序
-                    ->sortable()
-                    // 定义点击开关时的操作，直接更新数据库
-                    ->action(fn($record, $column) => $record->update([$column->getName() => ! $record->{$column->getName()}]))
-                    // 设置鼠标悬停时的提示文本
-                    ->tooltip(fn(Menu $record): string => $record->menu_status ? 'Active - Click to deactivate' : 'Inactive - Click to activate'),
+                    ->label('Status'),
 
                 // 创建一个文本列用于显示附加项列表
                 TextColumn::make('addons_list')

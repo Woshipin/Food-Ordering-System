@@ -19,6 +19,7 @@ class MenuController extends Controller
     {
         // Retrieve all menus without pagination
         $menus = Menu::with('category', 'images')
+            ->where('menu_status', true)
             ->latest()
             ->get();
 
@@ -58,7 +59,12 @@ class MenuController extends Controller
      */
     public function show(Menu $menu): JsonResponse
     {
-        $menu->load('category', 'images', 'addons', 'variants');
+        $menu->load([
+            'category',
+            'images',
+            'addons' => fn ($query) => $query->where('addon_status', true),
+            'variants' => fn ($query) => $query->where('variant_status', true),
+        ]);
         $formattedData = $this->formatMenuDetails($menu);
         return response()->json([
             'data' => $formattedData,
