@@ -5,6 +5,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MenuPackageController;
+use App\Http\Controllers\ContactMessageController;
+use App\Http\Controllers\GalleryController;
 
 Route::group([
     'middleware' => 'api',
@@ -31,3 +33,9 @@ Route::get('/menu-packages', [MenuPackageController::class, 'index']);
 
 // 获取单个套餐详情及其包含的菜单（和菜单的附加项/规格）
 Route::get('/menu-packages/{menu_package}', [MenuPackageController::class, 'show']);
+
+// Contact Message Routes
+Route::post('/contact', [ContactMessageController::class, 'store']);
+
+// Gallery Routes
+Route::get('/galleries', [GalleryController::class, 'index']);

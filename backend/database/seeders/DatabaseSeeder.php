@@ -18,7 +18,8 @@ class DatabaseSeeder extends Seeder
             AddonSeeder::class,   // ← 必须在 MenuSeeder 前
             VariantSeeder::class, // ← 必须在 MenuSeeder 前
             MenuSeeder::class,
-            MenuPackageSeeder::class
+            MenuPackageSeeder::class,
+            GallerySeeder::class,
         ]);
     }
 }
