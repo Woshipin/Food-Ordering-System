@@ -13,6 +13,7 @@ import {
   LogOut,
   Star,
   ChevronDown,
+  Phone,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
@@ -45,11 +46,6 @@ export default function ProfilePage() {
   const { handleLogout, isLoggingOut } = useLogout();
   const [activeTab, setActiveTab] = useState("profile");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [user] = useState({
-    name: "张三",
-    email: "zhangsan@example.com",
-    avatar: "/placeholder.svg?height=80&width=80",
-  });
 
   const addresses = [
     {
@@ -157,17 +153,21 @@ export default function ProfilePage() {
                 <div className="text-center mb-6">
                   <Avatar className="w-20 h-20 mx-auto mb-4 border-4 border-orange-200 shadow-lg">
                     <AvatarImage
-                      src={user.avatar || "/placeholder.svg"}
-                      alt={user.name}
+                      src={authUser?.user_image || "/placeholder.svg"}
+                      alt={authUser?.name}
                     />
                     <AvatarFallback className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-2xl font-bold">
-                      {user.name.charAt(0)}
+                      {authUser?.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <h3 className="text-lg font-semibold text-gray-800">{user.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">{authUser?.name}</h3>
                   <div className="mt-2 text-sm text-gray-600 flex items-center justify-center gap-1">
                     <Mail className="h-3 w-3" />
-                    {user.email}
+                    {authUser?.email}
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600 flex items-center justify-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {authUser?.phone_number}
                   </div>
                 </div>
                 
@@ -260,7 +260,7 @@ export default function ProfilePage() {
                           </label>
                           <div className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <User className="h-4 w-4 text-orange-500" />
-                            {user.name}
+                            {authUser?.name}
                           </div>
                         </div>
                         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
@@ -269,7 +269,16 @@ export default function ProfilePage() {
                           </label>
                           <div className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <Mail className="h-4 w-4 text-orange-500" />
-                            {user.email}
+                            {authUser?.email}
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                          <label className="text-sm font-medium text-gray-600 mb-1 block">
+                            {t("phoneNumber")}
+                          </label>
+                          <div className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-orange-500" />
+                            {authUser?.phone_number}
                           </div>
                         </div>
                       </div>

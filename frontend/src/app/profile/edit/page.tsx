@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Camera, Save, X } from "lucide-react"
+import { ArrowLeft, Camera, Save, X, Phone } from "lucide-react"
 import { Button } from "../../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card"
 import { Input } from "../../../components/ui/input"
@@ -12,15 +12,30 @@ import { Label } from "../../../components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar"
 import { useLanguage } from "../../../components/LanguageProvider"
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher"
+import { useAuth } from "@/context/AuthContext"
+import axios from "@/lib/axios"
+import { toast, Toaster } from "sonner"
 
 export default function EditProfilePage() {
   const { t } = useLanguage()
+  const { user, setUser } = useAuth()
   const [formData, setFormData] = useState({
-    name: "张三",
-    email: "zhangsan@example.com",
-    phone: "13888888888",
-    avatar: "/placeholder.svg?height=80&width=80",
+    name: "",
+    email: "",
+    phone_number: "",
+    user_image: "",
   })
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name,
+        email: user.email,
+        phone_number: user.phone_number || "",
+        user_image: user.user_image || "",
+      })
+    }
+  }, [user])
 
   const [isLoading, setIsLoading] = useState(false)
 
@@ -28,14 +43,24 @@ export default function EditProfilePage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    console.log("Profile updated:", formData)
-    setIsLoading(false)
-
-    // Redirect back to profile
-    // router.push('/profile')
+    try {
+      const response = await axios.put("/user/profile", formData)
+      setUser(response.data.user)
+      toast.success(t("profileUpdatedSuccessfully"))
+      setTimeout(() => {
+        window.location.href = "/profile"
+      }, 1500)
+    } catch (error: any) {
+      if (error.response?.data?.errors) {
+        Object.values(error.response.data.errors).forEach((err: any) => {
+          toast.error(err.join(" "))
+        })
+      } else {
+        toast.error(t("profileUpdateFailed"))
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +78,7 @@ export default function EditProfilePage() {
       reader.onload = (e) => {
         setFormData((prev) => ({
           ...prev,
-          avatar: e.target?.result as string,
+          user_image: e.target?.result as string,
         }))
       }
       reader.readAsDataURL(file)
@@ -61,8 +86,10 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <>
+      <Toaster richColors position="top-center" />
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -90,7 +117,7 @@ export default function EditProfilePage() {
               <div className="flex flex-col items-center space-y-4">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={formData.avatar || "/placeholder.svg"} alt={formData.name} />
+                    <AvatarImage src={formData.user_image || "/placeholder.svg"} alt={formData.name} />
                     <AvatarFallback className="text-2xl">{formData.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <label
@@ -138,16 +165,20 @@ export default function EditProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">{t("phone")} *</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="请输入手机号"
-                    required
-                  />
+                  <Label htmlFor="phone_number">{t("phoneNumber")} *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="phone_number"
+                      name="phone_number"
+                      type="tel"
+                      value={formData.phone_number}
+                      onChange={handleChange}
+                      placeholder={t("phoneNumberPlaceholder")}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -208,6 +239,7 @@ export default function EditProfilePage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
