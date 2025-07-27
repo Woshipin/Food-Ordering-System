@@ -96,18 +96,16 @@ class MenuPackageResource extends Resource
                             ]),
 
                         // Section 4: 套餐内容
-                        Section::make('Package Contents')
+                        Section::make('Select Menus')
                             ->schema([
                                 Select::make('menus')
                                     ->label('Included Menus')
-                                    ->relationship('menus', 'name')
+                                    ->relationship(name: 'menus', titleAttribute: 'name', modifyQueryUsing: fn ($query) => $query->where('menu_status', true))
                                     ->multiple()
                                     ->preload()
                                     ->searchable()
                                     ->required(),
                             ]),
-
-                        // *** 修改结束 ***
                     ]),
             ]);
     }
@@ -115,29 +113,81 @@ class MenuPackageResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->query(MenuPackage::with(['menus.addons', 'menus.variants']))
             ->columns([
-                TextColumn::make('id')
-                    // 设置列标题
-                    ->label('ID')
-                    // 允许排序
-                    ->sortable()
-                    // 设置此列可以被用户在界面上显示或隐藏
-                    ->toggleable(),
+                TextColumn::make('id')->sortable()->toggleable(),
                 TextColumn::make('name')->searchable()->sortable(),
-                ImageColumn::make('image')
-                    ->disk('public')
-                    ->label('Image')
-                    ->height(50)
-                    ->width(50)
-                    ->circular(),
-                TextColumn::make('description')->limit(30),
+                ImageColumn::make('image')->disk('public')->label('Image')->height(50)->width(50)->circular(),
+                TextColumn::make('description')->limit(30)->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('price')->money('MYR')->sortable(),
-                TextColumn::make('menus_count')
-                    ->counts('menus')
-                    ->label('Items')
-                    ->sortable(),
-                TextColumn::make('quantity')->sortable(),
+                TextColumn::make('quantity')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 ToggleColumn::make('status')->label('Active'),
+
+                TextColumn::make('menus_list')
+                    ->label('Menus')
+                    ->html()
+                    ->getStateUsing(function (MenuPackage $record): string {
+                        $menus = $record->menus;
+                        if ($menus->isEmpty()) {
+                            return '-';
+                        }
+                        $limit = 3;
+                        $displayMenus = $menus->take($limit)->map(fn($menu) =>
+                            "<span class='inline-block border border-amber-600 text-amber-600 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>{$menu->name}</span>"
+                        )->implode('');
+                        if ($menus->count() > $limit) {
+                            $displayMenus .= "<span class='inline-block border border-gray-500 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>...</span>";
+                        }
+                        return $displayMenus;
+                    })
+                    ->badge()
+                    ->color('primary')
+                    ->placeholder('No Menus')
+                    ->toggleable(),
+
+                TextColumn::make('addons_list')
+                    ->label('Add-ons')
+                    ->html()
+                    ->getStateUsing(function (MenuPackage $record): string {
+                        $addons = $record->menus->flatMap->addons->unique('id');
+                        if ($addons->isEmpty()) {
+                            return '-';
+                        }
+                        $limit = 3;
+                        $displayAddons = $addons->take($limit)->map(fn($addon) =>
+                            "<span class='inline-block border border-amber-600 text-amber-600 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>{$addon->name}</span>"
+                        )->implode('');
+                        if ($addons->count() > $limit) {
+                            $displayAddons .= "<span class='inline-block border border-gray-500 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>...</span>";
+                        }
+                        return $displayAddons;
+                    })
+                    ->badge()
+                    ->color('primary')
+                    ->placeholder('No Add-ons')
+                    ->toggleable(),
+
+                TextColumn::make('variants_list')
+                    ->label('Variants')
+                    ->html()
+                    ->getStateUsing(function (MenuPackage $record): string {
+                        $variants = $record->menus->flatMap->variants->unique('id');
+                        if ($variants->isEmpty()) {
+                            return '-';
+                        }
+                        $limit = 3;
+                        $displayVariants = $variants->take($limit)->map(fn($variant) =>
+                            "<span class='inline-block border border-amber-600 text-amber-600 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>{$variant->name}</span>"
+                        )->implode('');
+                        if ($variants->count() > $limit) {
+                            $displayVariants .= "<span class='inline-block border border-gray-500 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-md mr-1 mb-1'>...</span>";
+                        }
+                        return $displayVariants;
+                    })
+                    ->badge()
+                    ->color('primary')
+                    ->placeholder('No Variants')
+                    ->toggleable(),
             ])
             ->filters([])
             ->actions([

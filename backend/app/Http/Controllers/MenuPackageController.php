@@ -19,6 +19,7 @@ class MenuPackageController extends Controller
     {
         // 1. 获取分页数据，并使用 withCount 高效获取每个套餐包含的菜单数量
         $packagesPaginator = MenuPackage::withCount('menus')
+            ->where('status', true)
             ->latest()
             ->paginate(15);
 
@@ -51,7 +52,11 @@ class MenuPackageController extends Controller
         // 1. 这是此功能最关键的一步：
         // 使用点(.)语法进行深度预加载 (Nested Eager Loading)
         // 这会一次性加载套餐的所有菜单，以及每个菜单的所有附加项和规格
-        $menuPackage->load('menus.addons', 'menus.variants');
+        $menuPackage->load([
+            'menus' => fn ($query) => $query->where('menu_status', true),
+            'menus.addons' => fn ($query) => $query->where('addon_status', true),
+            'menus.variants' => fn ($query) => $query->where('variant_status', true),
+        ]);
 
         // 2. 使用私有辅助方法格式化详细数据
         $formattedData = $this->formatPackageDetails($menuPackage);
