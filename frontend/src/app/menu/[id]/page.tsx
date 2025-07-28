@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Star,
@@ -19,6 +20,9 @@ import { Checkbox } from "../../../components/ui/checkbox";
 import { Label } from "../../../components/ui/label";
 import { useLanguage } from "../../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
+import { useAuth } from "../../../context/AuthContext";
+import axios from "../../../lib/axios";
+import { toast } from "sonner";
 
 // --- 数据类型定义 ---
 interface ImageType {
@@ -65,6 +69,8 @@ export default function MenuDetailPage({
 }) {
   const { id } = use(params);
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const [menuItem, setMenuItem] = useState<MenuItemType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +81,7 @@ export default function MenuDetailPage({
     null
   );
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   useEffect(() => {
     const fetchMenuItem = async () => {
@@ -85,7 +92,7 @@ export default function MenuDetailPage({
           process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const response = await fetch(`${apiUrl}/api/menus/${id}`);
         if (!response.ok)
-          throw new Error(t("errorFetchMenu") || "Failed to fetch menu item.");
+          throw new Error(t("Error Fetch Menu") || "Failed to fetch menu item.");
 
         const result = await response.json();
         let data: MenuItemType = result.data;
@@ -136,17 +143,60 @@ export default function MenuDetailPage({
     );
   };
 
-  const addToCart = () => {
+  const addToCart = async () => {
     if (!menuItem) return;
-    console.log({
-      message: "Added to cart!",
-      itemId: menuItem.id,
-      itemName: menuItem.name,
-      variant: selectedVariant?.name || null,
-      addons: selectedAddons,
+
+    if (!isAuthenticated) {
+      toast.error(t("Login To Add") || "Please log in to add items to your cart.");
+      router.push("/auth/login");
+      return;
+    }
+
+    setIsAddingToCart(true);
+    const toastId = toast.loading(t("Adding to cart") || "Adding to cart...");
+
+    const selectedAddonsDetails = menuItem.addons.filter((addon) =>
+      selectedAddons.includes(addon.id)
+    ).map(addon => ({
+        addon_id: addon.id,
+        addon_name: addon.name,
+        addon_price: addon.price
+    }));
+
+    const selectedVariantDetail = selectedVariant ? {
+        variant_id: selectedVariant.id,
+        variant_name: selectedVariant.name,
+        variant_price: selectedVariant.price_modifier
+    } : null;
+
+    const cartPayload = {
+      menu_id: menuItem.id,
+      menu_name: menuItem.name,
+      menu_description: menuItem.description,
+      base_price: menuItem.base_price,
+      promotion_price: menuItem.promotion_price,
       quantity: quantity,
-      totalPrice: totalPrice.toFixed(2),
-    });
+      addons: selectedAddonsDetails,
+      variants: selectedVariantDetail ? [selectedVariantDetail] : [],
+    };
+
+    try {
+      await axios.post("/cart/menu/add", cartPayload);
+      toast.success(t("Added To Cart Success") || "Item added to cart successfully!", {
+        id: toastId,
+      });
+    } catch (error: any) {
+      console.error("Failed to add to cart:", error);
+      toast.error(
+        t("Add To Cart Failed") || "Failed to add item to cart. Please try again.",
+        {
+          id: toastId,
+          description: error.response?.data?.message || error.message,
+        }
+      );
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   // --- Loading State ---
@@ -192,7 +242,7 @@ export default function MenuDetailPage({
               <div className="absolute inset-0 h-16 w-16 border-4 border-orange-200 rounded-full mx-auto animate-pulse"></div>
             </div>
             <h3 className="mt-6 text-xl font-semibold text-gray-800">
-              {t("loading")}
+              {t("Loading")}
             </h3>
             <p className="mt-2 text-gray-600">
               Please wait while we load the menu item...
@@ -275,7 +325,7 @@ export default function MenuDetailPage({
                   variant="outline"
                   className="w-full sm:w-auto border-orange-300 text-orange-600 hover:bg-orange-50 px-6 py-3 rounded-full font-medium transition-all duration-300 cursor-pointer"
                 >
-                  {t("backToMenu") || "Back to Menu"}
+                  {t("back To Menu") || "Back to Menu"}
                 </Button>
               </Link>
             </div>
@@ -561,10 +611,19 @@ export default function MenuDetailPage({
                 size="lg"
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-lg sm:text-xl font-bold py-6 sm:py-8 rounded-2xl shadow-2xl shadow-orange-500/30 transition-all duration-300 hover:shadow-3xl hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-orange-400 focus:ring-offset-2 cursor-pointer transform active:scale-95"
                 onClick={addToCart}
+                disabled={isAddingToCart}
               >
                 <div className="flex items-center justify-center w-full">
-                  <ShoppingCart className="mr-3 h-6 w-6" />
-                  <span>{t("addToCart") || "Add to Cart"}</span>
+                  {isAddingToCart ? (
+                    <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                  ) : (
+                    <ShoppingCart className="mr-3 h-6 w-6" />
+                  )}
+                  <span>
+                    {isAddingToCart
+                      ? t("adding") || "Adding..."
+                      : t("addToCart") || "Add to Cart"}
+                  </span>
                   <span className="mx-4 opacity-70">|</span>
                   <span className="font-black text-xl">
                     RM{totalPrice.toFixed(2)}

@@ -21,5 +21,24 @@ axios.interceptors.request.use(
     }
 );
 
+// Response interceptor to handle global errors like 401
+axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            // Check if we are on the client side
+            if (typeof window !== 'undefined') {
+                console.log("Unauthorized, logging out...");
+                // Clear user data from storage
+                localStorage.removeItem('user');
+                localStorage.removeItem('auth_token');
+                // Redirect to login page
+                window.location.href = '/auth/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const post = axios.post;
 export default axios;

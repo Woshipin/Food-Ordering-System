@@ -141,8 +141,6 @@ export default function ContactPage() {
   // 返回页面的 JSX 结构。
   return (
     <>
-      {/* Toaster 组件用于显示来自 sonner 的 toast 通知。 */}
-      <Toaster richColors position="top-center" />
       {/* 主容器，设置最小高度和背景渐变色。 */}
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-100">
         {/* 页面头部 */}

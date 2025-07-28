@@ -1,12 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\MenuController;
-use App\Http\Controllers\MenuPackageController;
 use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\MenuController;
+use App\Http\Controllers\MenuPackageController;
+use App\Http\Controllers\CartController;
+use Illuminate\Support\Facades\Route;
 
 Route::group([
     'middleware' => 'api',
@@ -40,3 +41,15 @@ Route::post('/contact', [ContactMessageController::class, 'store']);
 
 // Gallery Routes
 Route::get('/galleries', [GalleryController::class, 'index']);
+
+// Cart Routes (Protected by Auth)
+Route::group(['middleware' => 'auth:api'], function () {
+    // Add Menu Item to Cart
+    Route::post('/cart/menu/add', [CartController::class, 'addMenuItem']);
+    // Add Package Item to Cart
+    Route::post('/cart/package/add', [CartController::class, 'addPackageItem']);
+    // Get Cart
+    Route::get('/cart', [CartController::class, 'getCart']);
+    // Clear Cart
+    Route::delete('/cart', [CartController::class, 'clearCart']);
+});

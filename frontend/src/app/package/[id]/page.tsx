@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -13,15 +13,17 @@ import {
   AlertTriangle,
   Loader,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Separator } from "../../../components/ui/separator";
 import { useLanguage } from "../../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
+import { useAuth } from "../../../context/AuthContext";
 import axios from "../../../lib/axios";
+import { toast } from "sonner";
 
 // --- Type Definitions ---
-// These types now precisely match the structure from MenuPackageController@show
 interface Variant {
   id: number;
   name: string;
@@ -57,6 +59,8 @@ export default function PackageDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const [packageItem, setPackageItem] = useState<PackageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,17 +72,17 @@ export default function PackageDetailPage() {
   const [selectedAddons, setSelectedAddons] = useState<
     Record<number, number[]>
   >({});
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const fetchPackage = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get(`/menu-packages/${id}`);
-      // Correctly access the data nested under the 'data' key
       setPackageItem(response.data.data);
     } catch (err) {
       setError(
-        t("errorFetchingPackage") ||
+        t("Error Fetching Package") ||
           "Could not load the package details. Please try again later."
       );
       console.error("Failed to fetch package:", err);
@@ -113,10 +117,8 @@ export default function PackageDetailPage() {
     let total = packageItem.price;
 
     packageItem.menus.forEach((menu) => {
-      // Add base price of each menu
       total += menu.base_price;
 
-      // Add selected variant price modifier
       const variantId = selectedVariants[menu.id];
       if (variantId) {
         const variant = menu.variants.find((v) => v.id === variantId);
@@ -125,7 +127,6 @@ export default function PackageDetailPage() {
         }
       }
 
-      // Add selected addons prices
       const addonIds = selectedAddons[menu.id] || [];
       addonIds.forEach((addonId) => {
         const addon = menu.addons.find((a) => a.id === addonId);
@@ -138,34 +139,86 @@ export default function PackageDetailPage() {
     return total * quantity;
   }, [packageItem, selectedVariants, selectedAddons, quantity]);
 
-  const addToCart = () => {
-    // This is where you would dispatch to a global state manager like Redux or Zustand
-    console.log({
-      message: `Added ${quantity} x ${packageItem?.name} to cart.`,
-      packageId: packageItem?.id,
-      quantity,
-      selections: {
-        variants: selectedVariants,
-        addons: selectedAddons,
-      },
-      totalPrice: calculateTotalPrice().toFixed(2),
+  const addToCart = async () => {
+    if (!packageItem) return;
+
+    if (!isAuthenticated) {
+      toast.error(t("Login To Add") || "Please log in to add items to your cart.");
+      router.push("/auth/login");
+      return;
+    }
+
+    setIsAddingToCart(true);
+    const toastId = toast.loading(t("Adding to cart") || "Adding to cart...");
+
+    const menusPayload = packageItem.menus.map(menu => {
+        const selectedVariantId = selectedVariants[menu.id];
+        const selectedVariant = menu.variants.find(v => v.id === selectedVariantId);
+
+        const selectedAddonIds = selectedAddons[menu.id] || [];
+        const selectedAddonsDetails = menu.addons.filter(a => selectedAddonIds.includes(a.id)).map(addon => ({
+            addon_id: addon.id,
+            addon_name: addon.name,
+            addon_price: addon.price
+        }));
+
+        return {
+            menu_id: menu.id,
+            menu_name: menu.name,
+            menu_description: menu.description,
+            base_price: menu.base_price,
+            promotion_price: null,
+            quantity: 1,
+            variants: selectedVariant ? [{
+                variant_id: selectedVariant.id,
+                variant_name: selectedVariant.name,
+                variant_price: selectedVariant.price_modifier
+            }] : [],
+            addons: selectedAddonsDetails
+        };
     });
+
+    const cartPayload = {
+        menu_package_id: packageItem.id,
+        package_name: packageItem.name,
+        package_description: packageItem.description,
+        package_price: packageItem.price,
+        quantity: quantity,
+        menus: menusPayload
+    };
+
+    try {
+        await axios.post("/cart/package/add", cartPayload);
+        toast.success(t("Package added to cart successfully") || "Package added to cart successfully!", {
+            id: toastId,
+        });
+    } catch (error: any) {
+        console.error("Failed to add package to cart:", error);
+        toast.error(
+            t("Add To Cart Failed") || "Failed to add package to cart. Please try again.",
+            {
+                id: toastId,
+                description: error.response?.data?.message || error.message,
+            }
+        );
+    } finally {
+        setIsAddingToCart(false);
+    }
   };
 
-  // --- Render Logic ---
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex flex-col items-center justify-center p-4">
         <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md w-full border border-orange-100">
           <div className="relative">
-            <Loader className="h-16 w-16 animate-spin text-orange-500 mx-auto mb-6" />
+            <Loader2 className="h-16 w-16 animate-spin text-orange-500 mx-auto mb-6" />
             <div className="absolute inset-0 h-16 w-16 mx-auto rounded-full bg-orange-100 opacity-20 animate-pulse"></div>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            {t("loadingPackage") || "Loading Package..."}
+            {t("Loading Package") || "Loading Package..."}
           </h2>
           <p className="text-gray-600">
-            {t("loadingMessage") || "Please wait while we prepare your delicious package details"}
+            {t("Loading Message") || "Please wait while we prepare your delicious package details"}
           </p>
           <div className="mt-6 flex justify-center space-x-2">
             <div className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"></div>
@@ -201,10 +254,9 @@ export default function PackageDetailPage() {
   }
 
   if (!packageItem) {
-    return null; // Or a more descriptive "Not Found" component
+    return null;
   }
 
-  // Sub-components for better organization
   const MenuHeader = () => {
     const { t } = useLanguage();
     return (
@@ -247,15 +299,11 @@ export default function PackageDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-      {/* Header */}
       <MenuHeader />
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-8">
         <div className="grid lg:grid-cols-5 gap-6 md:gap-8 xl:gap-12">
-          {/* Left Column: Package Details & Menu Customization */}
           <div className="lg:col-span-3 space-y-6 md:space-y-8">
-            {/* LARGE SECTION: Main Package Info */}
             <section className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-orange-100 hover:shadow-2xl transition-all duration-300">
               <div className="relative aspect-video rounded-2xl overflow-hidden mb-6 shadow-2xl group">
                 <Image
@@ -290,7 +338,6 @@ export default function PackageDetailPage() {
               </div>
             </section>
 
-            {/* LARGE SECTION: Menu Items */}
             <section className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-orange-100 hover:shadow-2xl transition-all duration-300">
               <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8 flex items-center text-gray-900">
                 <div className="p-3 bg-orange-100 rounded-xl mr-4">
@@ -300,7 +347,6 @@ export default function PackageDetailPage() {
               </h2>
               <div className="space-y-6 md:space-y-8">
                 {packageItem.menus.map((menu, index) => (
-                  // SMALL SECTION: Individual Menu Item
                   <div
                     key={menu.id}
                     className="p-4 md:p-6 border-2 border-orange-100 rounded-2xl transition-all duration-300 hover:shadow-lg hover:border-orange-200 bg-gradient-to-r from-white to-orange-50/30"
@@ -314,7 +360,6 @@ export default function PackageDetailPage() {
                       </span>
                     </div>
 
-                    {/* Variants */}
                     {menu.variants && menu.variants.length > 0 && (
                       <div className="mb-6">
                         <h4 className="font-semibold text-base md:text-lg mb-4 text-gray-800 flex items-center">
@@ -365,7 +410,6 @@ export default function PackageDetailPage() {
                       </div>
                     )}
 
-                    {/* Add-ons */}
                     {menu.addons && menu.addons.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-base md:text-lg mb-4 text-gray-800 flex items-center">
@@ -416,7 +460,6 @@ export default function PackageDetailPage() {
             </section>
           </div>
 
-          {/* Right Column: Summary & Actions (Sticky) */}
           <aside className="lg:col-span-2">
             <div className="sticky top-28 space-y-6">
               <section className="bg-white p-6 rounded-2xl shadow-lg border border-orange-100">
@@ -424,7 +467,6 @@ export default function PackageDetailPage() {
                   {t("summary") || "Summary"}
                 </h2>
                 <div className="space-y-6">
-                  {/* Quantity Selector */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3 text-gray-800">
                       {t("quantity") || "Quantity"}
@@ -453,7 +495,6 @@ export default function PackageDetailPage() {
 
                   <Separator />
 
-                  {/* Total Price */}
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-gray-800">
                       {t("totalPrice") || "Total Price"}
@@ -463,13 +504,19 @@ export default function PackageDetailPage() {
                     </span>
                   </div>
 
-                  {/* Add to Cart Button */}
                   <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg font-bold py-7 rounded-xl cursor-pointer transition-transform transform hover:scale-105"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg font-bold py-7 rounded-xl cursor-pointer transition-transform transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                     onClick={addToCart}
+                    disabled={isAddingToCart}
                   >
-                    <ShoppingCart className="mr-3 h-6 w-6" />
-                    {t("addToCart") || "Add to Cart"}
+                    {isAddingToCart ? (
+                      <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="mr-3 h-6 w-6" />
+                    )}
+                    {isAddingToCart
+                      ? t("adding") || "Adding..."
+                      : t("addToCart") || "Add to Cart"}
                   </Button>
                 </div>
               </section>

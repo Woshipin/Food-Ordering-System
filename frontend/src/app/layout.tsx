@@ -4,7 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { LanguageProvider } from "../components/LanguageProvider"
 import { AuthProvider } from "@/context/AuthContext"
-import { Toaster } from "react-hot-toast"
+import { Toaster } from "sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,7 +25,7 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>
             {children}
-            <Toaster position="top-center" />
+            <Toaster richColors position="top-center" />
           </LanguageProvider>
         </AuthProvider>
       </body>
