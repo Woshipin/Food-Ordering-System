@@ -14,11 +14,13 @@ return new class extends Migration
         Schema::create('menu_packages', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->foreignId('category_id')->nullable()->constrained()->onDelete('set null');
             $table->string('image')->nullable();
             $table->text('description')->nullable();
-            $table->decimal('price', 8, 2)->nullable();
+            $table->decimal('base_price', 8, 2)->nullable();
+            $table->decimal('promotion_price', 8, 2)->nullable();
             $table->integer('quantity')->nullable()->default(null); // 整体套餐数量
-            $table->boolean('status')->default(true);
+            $table->boolean('menu_package_status')->default(true);
             $table->timestamps();
         });
     }

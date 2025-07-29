@@ -30,5 +30,11 @@ class UserSeeder extends Seeder
             'password' => Hash::make('123456'), // 密码是 'password'
         ]);
 
+        User::create([
+            'name' => 'aaa',
+            'email' => 'aaa@gmail.com',
+            'password' => Hash::make('123456'), // 密码是 'password'
+        ]);
+
     }
 }

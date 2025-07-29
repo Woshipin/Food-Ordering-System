@@ -11,9 +11,8 @@ import {
   ShoppingCart,
   Package,
   AlertTriangle,
-  Loader,
-  Star,
   Loader2,
+  Star,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Separator } from "../../../components/ui/separator";
@@ -29,13 +28,11 @@ interface Variant {
   name: string;
   price_modifier: number;
 }
-
 interface Addon {
   id: number;
   name: string;
   price: number;
 }
-
 interface Menu {
   id: number;
   name: string;
@@ -44,14 +41,19 @@ interface Menu {
   addons: Addon[];
   variants: Variant[];
 }
-
+interface Category {
+  id: number;
+  name: string;
+}
 interface PackageData {
   id: number;
   name: string;
   description: string;
-  price: number;
-  image_url: string;
+  base_price: number;
+  promotion_price: number | null;
+  image: string | null;
   menus: Menu[];
+  category: Category | null;
 }
 
 // --- Main Component ---
@@ -66,25 +68,19 @@ export default function PackageDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariants, setSelectedVariants] = useState<
-    Record<number, number>
-  >({});
-  const [selectedAddons, setSelectedAddons] = useState<
-    Record<number, number[]>
-  >({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
+  const [selectedAddons, setSelectedAddons] = useState<Record<number, { id: number; price: number }[]>>({});
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const fetchPackage = useCallback(async () => {
+    if (!id) return;
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get(`/menu-packages/${id}`);
       setPackageItem(response.data.data);
     } catch (err) {
-      setError(
-        t("Error Fetching Package") ||
-          "Could not load the package details. Please try again later."
-      );
+      setError(t("Error Fetching Package") || "Could not load the package details. Please try again later.");
       console.error("Failed to fetch package:", err);
     } finally {
       setLoading(false);
@@ -92,117 +88,101 @@ export default function PackageDetailPage() {
   }, [id, t]);
 
   useEffect(() => {
-    if (id) {
-      fetchPackage();
-    }
-  }, [id, fetchPackage]);
+    fetchPackage();
+  }, [fetchPackage]);
 
   const handleVariantChange = (menuId: number, variantId: number) => {
     setSelectedVariants((prev) => ({ ...prev, [menuId]: variantId }));
   };
 
-  const handleAddonToggle = (menuId: number, addonId: number) => {
+  const handleAddonToggle = (menuId: number, addon: Addon) => {
     setSelectedAddons((prev) => {
       const currentAddons = prev[menuId] || [];
-      const newAddons = currentAddons.includes(addonId)
-        ? currentAddons.filter((id) => id !== addonId)
-        : [...currentAddons, addonId];
+      const addonExists = currentAddons.some(a => a.id === addon.id);
+      const newAddons = addonExists
+        ? currentAddons.filter(a => a.id !== addon.id)
+        : [...currentAddons, { id: addon.id, price: addon.price }];
       return { ...prev, [menuId]: newAddons };
     });
   };
 
+  // --- 修正: 增加更安全的数字转换和校验以防止 NaN ---
   const calculateTotalPrice = useCallback(() => {
     if (!packageItem) return 0;
 
-    let total = packageItem.price;
+    // 安全地获取促销价和基础价，如果无效则默认为 0
+    const promoPrice = parseFloat(String(packageItem.promotion_price)) || 0;
+    const basePrice = parseFloat(String(packageItem.base_price)) || 0;
+    
+    // 确定套餐的基础价格
+    const basePackagePrice = (promoPrice > 0) ? promoPrice : basePrice;
 
+    // 计算选项的总价
+    let optionsTotal = 0;
     packageItem.menus.forEach((menu) => {
-      total += menu.base_price;
-
+      // 计算所选 variant 的价格
       const variantId = selectedVariants[menu.id];
       if (variantId) {
         const variant = menu.variants.find((v) => v.id === variantId);
         if (variant) {
-          total += variant.price_modifier;
+          // 安全地转换 price_modifier
+          optionsTotal += parseFloat(String(variant.price_modifier)) || 0;
         }
       }
 
-      const addonIds = selectedAddons[menu.id] || [];
-      addonIds.forEach((addonId) => {
-        const addon = menu.addons.find((a) => a.id === addonId);
-        if (addon) {
-          total += addon.price;
-        }
+      // 计算所选 addon 的价格
+      const addonDetails = selectedAddons[menu.id] || [];
+      addonDetails.forEach((addon) => {
+          // 安全地转换 price
+          optionsTotal += parseFloat(String(addon.price)) || 0;
       });
     });
 
-    return total * quantity;
+    // 计算最终总价
+    const total = (basePackagePrice + optionsTotal) * quantity;
+    
+    // 返回最终结果，如果结果是 NaN (不太可能发生，但作为最后一道防线)，则返回 0
+    return isNaN(total) ? 0 : total;
   }, [packageItem, selectedVariants, selectedAddons, quantity]);
 
   const addToCart = async () => {
     if (!packageItem) return;
-
     if (!isAuthenticated) {
       toast.error(t("Login To Add") || "Please log in to add items to your cart.");
       router.push("/auth/login");
       return;
     }
-
     setIsAddingToCart(true);
     const toastId = toast.loading(t("Adding to cart") || "Adding to cart...");
 
-    const menusPayload = packageItem.menus.map(menu => {
-        const selectedVariantId = selectedVariants[menu.id];
-        const selectedVariant = menu.variants.find(v => v.id === selectedVariantId);
-
-        const selectedAddonIds = selectedAddons[menu.id] || [];
-        const selectedAddonsDetails = menu.addons.filter(a => selectedAddonIds.includes(a.id)).map(addon => ({
-            addon_id: addon.id,
-            addon_name: addon.name,
-            addon_price: addon.price
-        }));
-
-        return {
-            menu_id: menu.id,
-            menu_name: menu.name,
-            menu_description: menu.description,
-            base_price: menu.base_price,
-            promotion_price: null,
-            quantity: 1,
-            variants: selectedVariant ? [{
-                variant_id: selectedVariant.id,
-                variant_name: selectedVariant.name,
-                variant_price: selectedVariant.price_modifier
-            }] : [],
-            addons: selectedAddonsDetails
-        };
-    });
+    const finalPrice = calculateTotalPrice() / quantity;
 
     const cartPayload = {
-        menu_package_id: packageItem.id,
-        package_name: packageItem.name,
-        package_description: packageItem.description,
-        package_price: packageItem.price,
-        quantity: quantity,
-        menus: menusPayload
+      menu_package_id: packageItem.id,
+      quantity: quantity,
+      unit_price: finalPrice,
+      options: {
+          menus: packageItem.menus.map(menu => ({
+              menu_id: menu.id,
+              variant_id: selectedVariants[menu.id] || null,
+              addon_ids: (selectedAddons[menu.id] || []).map(a => a.id)
+          }))
+      }
     };
-
+    
     try {
-        await axios.post("/cart/package/add", cartPayload);
-        toast.success(t("Package added to cart successfully") || "Package added to cart successfully!", {
-            id: toastId,
-        });
+      await axios.post("/cart/package/add", cartPayload); 
+      toast.success(t("Package added to cart successfully") || "Package added to cart successfully!", {
+        id: toastId,
+      });
     } catch (error: any) {
-        console.error("Failed to add package to cart:", error);
-        toast.error(
-            t("Add To Cart Failed") || "Failed to add package to cart. Please try again.",
-            {
-                id: toastId,
-                description: error.response?.data?.message || error.message,
-            }
-        );
+      console.error("Failed to add package to cart:", error);
+      toast.error(t("Add To Cart Failed") || "Failed to add package to cart. Please try again.", {
+        id: toastId,
+        description: error.response?.data?.message || error.message,
+      });
     } finally {
-        setIsAddingToCart(false);
+      setIsAddingToCart(false);
     }
   };
 
@@ -258,13 +238,12 @@ export default function PackageDetailPage() {
   }
 
   const MenuHeader = () => {
-    const { t } = useLanguage();
     return (
       <header className="sticky top-0 z-50 bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 shadow-2xl backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Link href="/">
+              <Link href="/package">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -293,9 +272,7 @@ export default function PackageDetailPage() {
   };
 
   const totalPrice = calculateTotalPrice();
-  const fullImageUrl = packageItem.image_url.startsWith("http")
-    ? packageItem.image_url
-    : `http://127.0.0.1:8000${packageItem.image_url}`;
+  const fullImageUrl = packageItem.image ? `http://127.0.0.1:8000${packageItem.image}` : "/placeholder.svg?height=400&width=600";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
@@ -303,6 +280,7 @@ export default function PackageDetailPage() {
 
       <main className="container mx-auto px-4 py-6 md:py-8">
         <div className="grid lg:grid-cols-5 gap-6 md:gap-8 xl:gap-12">
+          
           <div className="lg:col-span-3 space-y-6 md:space-y-8">
             <section className="bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-orange-100 hover:shadow-2xl transition-all duration-300">
               <div className="relative aspect-video rounded-2xl overflow-hidden mb-6 shadow-2xl group">
@@ -311,10 +289,7 @@ export default function PackageDetailPage() {
                   alt={packageItem.name}
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-110"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "/placeholder.svg?height=400&width=600";
-                  }}
+                  onError={(e) => { e.currentTarget.src = "/placeholder.svg?height=400&width=600"; }}
                   priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -331,9 +306,7 @@ export default function PackageDetailPage() {
                 <div className="flex items-center gap-2 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200 flex-shrink-0">
                   <Star className="h-5 w-5 text-orange-500 fill-orange-500" />
                   <span className="font-bold text-gray-800">4.8</span>
-                  <span className="text-sm text-gray-500 hidden sm:inline">
-                    (156 {t("reviews")})
-                  </span>
+                  <span className="text-sm text-gray-500 hidden sm:inline">(156 {t("reviews")})</span>
                 </div>
               </div>
             </section>
@@ -347,10 +320,7 @@ export default function PackageDetailPage() {
               </h2>
               <div className="space-y-6 md:space-y-8">
                 {packageItem.menus.map((menu, index) => (
-                  <div
-                    key={menu.id}
-                    className="p-4 md:p-6 border-2 border-orange-100 rounded-2xl transition-all duration-300 hover:shadow-lg hover:border-orange-200 bg-gradient-to-r from-white to-orange-50/30"
-                  >
+                  <div key={menu.id} className="p-4 md:p-6 border-2 border-orange-100 rounded-2xl transition-all duration-300 hover:shadow-lg hover:border-orange-200 bg-gradient-to-r from-white to-orange-50/30">
                     <div className="flex items-start justify-between mb-4">
                       <h3 className="font-bold text-lg md:text-xl text-gray-900 flex-1">
                         {menu.name}
@@ -368,42 +338,13 @@ export default function PackageDetailPage() {
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
                           {menu.variants.map((variant) => (
-                            <label
-                              key={variant.id}
-                              className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${
-                                selectedVariants[menu.id] === variant.id
-                                  ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200"
-                                  : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name={`variant-${menu.id}`}
-                                checked={
-                                  selectedVariants[menu.id] === variant.id
-                                }
-                                onChange={() =>
-                                  handleVariantChange(menu.id, variant.id)
-                                }
-                                className="hidden"
-                              />
-                              <div className={`w-4 h-4 rounded-full border-2 mr-3 flex-shrink-0 ${
-                                selectedVariants[menu.id] === variant.id
-                                  ? "border-orange-500 bg-orange-500"
-                                  : "border-gray-300"
-                              }`}>
-                                {selectedVariants[menu.id] === variant.id && (
-                                  <div className="w-2 h-2 bg-white rounded-full m-auto mt-0.5"></div>
-                                )}
+                            <label key={variant.id} className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${selectedVariants[menu.id] === variant.id ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200" : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"}`}>
+                              <input type="radio" name={`variant-${menu.id}`} checked={selectedVariants[menu.id] === variant.id} onChange={() => handleVariantChange(menu.id, variant.id)} className="hidden"/>
+                              <div className={`w-4 h-4 rounded-full border-2 mr-3 flex-shrink-0 ${selectedVariants[menu.id] === variant.id ? "border-orange-500 bg-orange-500" : "border-gray-300"}`}>
+                                {selectedVariants[menu.id] === variant.id && (<div className="w-2 h-2 bg-white rounded-full m-auto mt-0.5"></div>)}
                               </div>
-                              <span className="font-medium text-gray-800 flex-1">
-                                {variant.name}
-                              </span>
-                              {variant.price_modifier > 0 && (
-                                <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">
-                                  +RM{variant.price_modifier.toFixed(2)}
-                                </span>
-                              )}
+                              <span className="font-medium text-gray-800 flex-1">{variant.name}</span>
+                              {variant.price_modifier > 0 && (<span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">+RM{variant.price_modifier.toFixed(2)}</span>)}
                             </label>
                           ))}
                         </div>
@@ -418,37 +359,10 @@ export default function PackageDetailPage() {
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {menu.addons.map((addon) => (
-                            <label
-                              key={addon.id}
-                              className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${
-                                selectedAddons[menu.id]?.includes(addon.id)
-                                  ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200"
-                                  : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  selectedAddons[menu.id]?.includes(addon.id) ||
-                                  false
-                                }
-                                onChange={() =>
-                                  handleAddonToggle(menu.id, addon.id)
-                                }
-                                className={`h-5 w-5 rounded border-2 cursor-pointer transition-all duration-200 ${
-                                  selectedAddons[menu.id]?.includes(addon.id)
-                                    ? "bg-orange-500 border-orange-500 text-white"
-                                    : "border-gray-300 hover:border-orange-400"
-                                }`}
-                              />
-                              <span className="font-medium text-gray-800 ml-3 flex-1">
-                                {addon.name}
-                              </span>
-                              {addon.price > 0 && (
-                                <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg ml-auto">
-                                  +RM{addon.price.toFixed(2)}
-                                </span>
-                              )}
+                            <label key={addon.id} className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${selectedAddons[menu.id]?.some(a => a.id === addon.id) ? "border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200" : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"}`}>
+                              <input type="checkbox" checked={selectedAddons[menu.id]?.some(a => a.id === addon.id) || false} onChange={() => handleAddonToggle(menu.id, addon)} className="form-checkbox h-5 w-5 rounded border-2 cursor-pointer transition-all duration-200 text-orange-500 focus:ring-orange-500 ${selectedAddons[menu.id]?.some(a => a.id === addon.id) ? 'border-orange-500' : 'border-gray-300'}" />
+                              <span className="font-medium text-gray-800 ml-3 flex-1">{addon.name}</span>
+                              {addon.price > 0 && (<span className="text-sm font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-lg ml-auto">+RM{addon.price.toFixed(2)}</span>)}
                             </label>
                           ))}
                         </div>
@@ -492,9 +406,7 @@ export default function PackageDetailPage() {
                         </Button>
                       </div>
                   </div>
-
                   <Separator />
-
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-gray-800">
                       {t("totalPrice") || "Total Price"}
@@ -503,7 +415,6 @@ export default function PackageDetailPage() {
                       RM{totalPrice.toFixed(2)}
                     </span>
                   </div>
-
                   <Button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white text-lg font-bold py-7 rounded-xl cursor-pointer transition-transform transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                     onClick={addToCart}

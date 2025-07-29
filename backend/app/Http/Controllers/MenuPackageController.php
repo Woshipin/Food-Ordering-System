@@ -10,68 +10,65 @@ use Illuminate\Support\Facades\Storage;
 class MenuPackageController extends Controller
 {
     /**
-     * 显示所有套餐的列表 (分页)
-     * GET /api/menu-packages
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * 显示所有套餐的列表
+     * 这个API是给 PackagesPage 使用的，需要包含所有卡片上显示的信息。
      */
     public function index(): JsonResponse
     {
-        // 1. 获取分页数据，并使用 withCount 高效获取每个套餐包含的菜单数量
-        $packagesPaginator = MenuPackage::withCount('menus')
-            ->where('status', true)
+        // 1. 获取所有激活的套餐，并预加载需要在卡片上显示的关系
+        $packages = MenuPackage::with(['category', 'menus:id,name']) // 只加载菜单的id和name即可
+            ->withCount('menus')
+            ->where('menu_package_status', true) // 使用正确的状态字段
             ->latest()
-            ->paginate(15);
+            ->get(); // 使用 get() 获取所有，如果需要分页再换回 paginate(15)
 
-        // 2. 转换分页集合中的每一项，以格式化输出
-        $transformedPackages = $packagesPaginator->through(function (MenuPackage $package) {
+        // 2. 转换集合中的每一项，以格式化输出
+        $transformedPackages = $packages->map(function (MenuPackage $package) {
             return [
                 'id' => $package->id,
                 'name' => $package->name,
-                'price' => (float) $package->price,
+                'description' => $package->description,
+                'base_price' => $package->base_price,
+                'promotion_price' => $package->promotion_price,
                 'quantity' => $package->quantity,
-                'status' => $package->status,
-                'image_url' => $package->image ? Storage::url($package->image) : null,
-                'menu_count' => $package->menus_count, // withCount 会自动添加 `menus_count` 属性
+                'status' => $package->menu_package_status,
+                // Storage::url() 返回 /storage/path/to/image.jpg
+                // 前端需要拼接上域名 http://127.0.0.1:8000
+                'image' => $package->image ? Storage::url($package->image) : null,
+                'category' => $package->category ? [
+                    'id' => $package->category->id,
+                    'name' => $package->category->name,
+                ] : null,
+                'menus' => $package->menus, // 包含菜单的简要列表
+                'menus_count' => $package->menus_count,
             ];
         });
 
-        // 3. 返回标准的分页 JSON 响应
+        // 3. 返回 JSON 响应 (不使用Laravel分页器时直接返回数组)
         return response()->json($transformedPackages);
     }
 
     /**
-     * 显示单个套餐的完整详细信息，包括其所有菜单及菜单的附加项和规格
-     * GET /api/menu-packages/{menu_package}
-     *
-     * @param \App\Models\MenuPackage $menuPackage Laravel路由模型绑定
-     * @return \Illuminate\Http\JsonResponse
+     * 显示单个套餐的完整详细信息 (此方法逻辑正确，无需修改)
      */
     public function show(MenuPackage $menuPackage): JsonResponse
     {
-        // 1. 这是此功能最关键的一步：
-        // 使用点(.)语法进行深度预加载 (Nested Eager Loading)
-        // 这会一次性加载套餐的所有菜单，以及每个菜单的所有附加项和规格
         $menuPackage->load([
+            'category',
             'menus' => fn ($query) => $query->where('menu_status', true),
             'menus.addons' => fn ($query) => $query->where('addon_status', true),
             'menus.variants' => fn ($query) => $query->where('variant_status', true),
         ]);
 
-        // 2. 使用私有辅助方法格式化详细数据
         $formattedData = $this->formatPackageDetails($menuPackage);
 
-        // 3. 返回被 'data' 键包裹的 JSON 响应
         return response()->json([
             'data' => $formattedData,
         ]);
     }
 
     /**
-     * 私有辅助方法，用于格式化套餐的详细信息
-     *
-     * @param \App\Models\MenuPackage $package
-     * @return array
+     * 私有辅助方法，用于格式化套餐的详细信息 (需要更新以使用新字段)
      */
     private function formatPackageDetails(MenuPackage $package): array
     {
@@ -79,34 +76,29 @@ class MenuPackageController extends Controller
             'id' => $package->id,
             'name' => $package->name,
             'description' => $package->description,
-            'price' => (float) $package->price,
+            'base_price' => $package->base_price,
+            'promotion_price' => $package->promotion_price,
             'quantity' => $package->quantity,
-            'status' => $package->status,
-            'image_url' => $package->image ? Storage::url($package->image) : null,
-
-            // 格式化套餐中包含的所有菜单
+            'status' => $package->menu_package_status,
+            'image' => $package->image ? Storage::url($package->image) : null,
+            'category' => $package->category ? [
+                'id' => $package->category->id,
+                'name' => $package->category->name,
+            ] : null,
             'menus' => $package->menus->map(function ($menu) {
                 return [
                     'id' => $menu->id,
                     'name' => $menu->name,
-                    'base_price' => (float) $menu->base_price,
+                    'base_price' => $menu->base_price,
                     'description' => $menu->description,
-
-                    // 格式化每个菜单的附加项 (Addons)
                     'addons' => $menu->addons->map(function ($addon) {
                         return [
-                            'id' => $addon->id,
-                            'name' => $addon->name,
-                            'price' => isset($addon->price) ? (float) $addon->price : 0.0,
+                            'id' => $addon->id, 'name' => $addon->name, 'price' => (float) $addon->price,
                         ];
                     }),
-
-                    // 格式化每个菜单的规格 (Variants)
                     'variants' => $menu->variants->map(function ($variant) {
                         return [
-                            'id' => $variant->id,
-                            'name' => $variant->name,
-                            'price_modifier' => isset($variant->price_modifier) ? (float) $variant->price_modifier : 0.0,
+                            'id' => $variant->id, 'name' => $variant->name, 'price_modifier' => (float) $variant->price_modifier,
                         ];
                     }),
                 ];
