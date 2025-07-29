@@ -178,6 +178,8 @@ export default function MenuDetailPage({
       quantity: quantity,
       addons: selectedAddonsDetails,
       variants: selectedVariantDetail ? [selectedVariantDetail] : [],
+      image_url: menuItem.images.length > 0 ? menuItem.images[0].url : null,
+      category_name: menuItem.category ? menuItem.category.name : null,
     };
 
     try {
