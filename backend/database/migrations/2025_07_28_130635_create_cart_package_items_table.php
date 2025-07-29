@@ -18,8 +18,9 @@ return new class extends Migration
             $table->string('package_name');
             $table->text('package_description')->nullable();
             $table->decimal('package_price', 8, 2)->nullable();
-            $table->string('package_image')->nullable();
+            $table->string('package_image')->nullable(); 
             $table->integer('quantity')->default(1);
+            $table->string('category_name')->nullable();
             $table->timestamps();
         });
     }

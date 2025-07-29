@@ -20,6 +20,8 @@ return new class extends Migration
             $table->decimal('base_price', 8, 2);
             $table->decimal('promotion_price', 8, 2)->nullable();
             $table->integer('quantity')->default(1);
+            $table->string('image_url')->nullable();
+            $table->string('category_name')->nullable();
             $table->timestamps();
         });
     }

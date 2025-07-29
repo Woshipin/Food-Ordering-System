@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,7 @@ import {
   Wallet,
   Smartphone,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
@@ -40,90 +41,145 @@ import { Badge } from "../../components/ui/badge";
 import { Textarea } from "../../components/ui/textarea";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { useLanguage } from "../../components/LanguageProvider";
+import { useAuth } from "../../context/AuthContext";
+import axios from "../../lib/axios";
+import { toast } from "sonner";
+
+// --- Type Definitions ---
+interface Addon {
+    addon_name: string;
+    addon_price: number;
+}
+
+interface Variant {
+    variant_name: string;
+    variant_price: number;
+}
+
+interface CartMenuItem {
+    id: number;
+    menu_name: string;
+    base_price: number;
+    promotion_price?: number;
+    quantity: number;
+    menu_description: string;
+    addons: Addon[];
+    variants: Variant[];
+    image_url?: string | null;
+    category_name?: string;
+}
+
+interface CartPackageItemMenu {
+    id: number;
+    menu_name: string;
+    addons: Addon[];
+    variants: Variant[];
+}
+
+interface CartPackageItem {
+    id: number;
+    package_name: string;
+    package_price: number;
+    promotion_price?: number;
+    quantity: number;
+    package_description: string;
+    menus: CartPackageItemMenu[];
+    package_image?: string | null;
+    category_name?: string;
+}
+
+interface CartData {
+    id: number;
+    user_id: number;
+    menu_items: CartMenuItem[];
+    package_items: CartPackageItem[];
+}
+
+// --- 辅助函数: 构建完整的图片 URL ---
+const getFullImageUrl = (imagePath: string | null | undefined): string => {
+    if (!imagePath) {
+        return "/placeholder.svg"; // 如果路径为空，返回占位符
+    }
+    // 检查路径是否已经是完整的 URL
+    if (imagePath.startsWith('http')) {
+        return imagePath;
+    }
+    // 检查路径是否是 /storage/... 格式
+    if (imagePath.startsWith('/storage/')) {
+        return `http://127.0.0.1:8000${imagePath}`;
+    }
+    // 否则，假设是 menu-packages/xxx.jpg 格式，拼接 /storage/
+    return `http://127.0.0.1:8000/storage/${imagePath}`;
+};
 
 export default function CartPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  const [cartData, setCartData] = useState<CartData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Cart Items State
-  const [foodItems, setFoodItems] = useState([
-    {
-      id: 1,
-      name: "招牌牛肉面",
-      price: 28.0,
-      quantity: 2,
-      image: "/placeholder.svg?height=80&width=80",
-      description: "精选优质牛肉，手工拉面",
-      type: "food",
-    },
-    {
-      id: 2,
-      name: "麻辣香锅",
-      price: 32.0,
-      quantity: 1,
-      image: "/placeholder.svg?height=80&width=80",
-      description: "新鲜蔬菜配香辣调料",
-      type: "food",
-    },
-    {
-      id: 3,
-      name: "鲜榨橙汁",
-      price: 12.0,
-      quantity: 2,
-      image: "/placeholder.svg?height=80&width=80",
-      description: "新鲜橙子现榨",
-      type: "food",
-    },
-  ]);
+  useEffect(() => {
+    const fetchCart = async () => {
+      if (!isAuthenticated) {
+        router.push("/auth/login");
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get("/cart");
+        setCartData(response.data.cart);
+      } catch (err) {
+        setError(t("errorFetchingCart") || "Failed to fetch cart data.");
+        toast.error(t("errorFetchingCart") || "Failed to fetch cart data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCart();
+  }, [isAuthenticated, router, t]);
 
-  const [packageItems, setPackageItems] = useState([
-    {
-      id: 4,
-      name: "家庭套餐A",
-      price: 88.0,
-      quantity: 1,
-      image: "/placeholder.svg?height=80&width=80",
-      description: "适合3-4人享用，包含主食、小菜、汤品和饮料",
-      type: "package",
-      packageContents: [
-        "招牌牛肉面 x2",
-        "蒸饺套餐 x1",
-        "酸辣汤 x1",
-        "鲜榨橙汁 x2",
-      ],
-      serves: "3-4人",
-    },
-  ]);
+  const calculateItemTotal = (item: CartMenuItem) => {
+    const basePrice = item.promotion_price ?? item.base_price;
+    const addonsPrice = item.addons.reduce((sum, addon) => sum + Number(addon.addon_price), 0);
+    const variantsPrice = item.variants.reduce((sum, variant) => sum + Number(variant.variant_price), 0);
+    return (Number(basePrice) + addonsPrice + variantsPrice) * item.quantity;
+  };
 
-  // Step 2: Service Type & Details
+  const calculatePackageTotal = (pkg: CartPackageItem) => {
+      const basePrice = pkg.promotion_price ?? pkg.package_price;
+      let packageExtras = 0;
+      pkg.menus.forEach(menu => {
+          packageExtras += menu.addons.reduce((sum, addon) => sum + Number(addon.addon_price), 0);
+          packageExtras += menu.variants.reduce((sum, variant) => sum + Number(variant.variant_price), 0);
+      });
+      return (Number(basePrice) + packageExtras) * pkg.quantity;
+  };
+
+  const subtotal = cartData
+    ? cartData.menu_items.reduce((sum, item) => sum + calculateItemTotal(item), 0) +
+      cartData.package_items.reduce((sum, pkg) => sum + calculatePackageTotal(pkg), 0)
+    : 0;
+
+  const totalItems = cartData
+    ? cartData.menu_items.length + cartData.package_items.length
+    : 0;
+
   const [serviceType, setServiceType] = useState("delivery");
-  const [selectedAddress, setSelectedAddress] = useState("1");
-  const [tableNumber, setTableNumber] = useState("");
-  const [deliveryNotes, setDeliveryNotes] = useState("");
-
-  // Step 3: Payment Method
-  const [paymentMethod, setPaymentMethod] = useState("card");
+  const deliveryFee = serviceType === "delivery" ? (subtotal >= 50 ? 0 : 8) : 0;
   const [promoCode, setPromoCode] = useState("");
+  const discount = promoCode === "SAVE10" ? subtotal * 0.1 : 0;
+  const total = subtotal + deliveryFee - discount;
 
-  // Address options
-  const addresses = [
-    { id: "1", label: "家", address: "新加坡裕廊西街63号 #12-345", isDefault: true },
-    { id: "2", label: "办公室", address: "新加坡乌节路238号 ION大厦 #15-20", isDefault: false },
-    { id: "3", label: "朋友家", address: "新加坡淡滨尼街82号 #08-123", isDefault: false },
-  ];
-
-  // Table options
-  const tables = [
-    { id: 1, number: "A1", capacity: 2, available: true },
-    { id: 2, number: "A2", capacity: 4, available: true },
-    { id: 3, number: "A3", capacity: 6, available: false },
-    { id: 4, number: "B1", capacity: 2, available: true },
-    { id: 5, number: "B2", capacity: 4, available: true },
-    { id: 6, number: "B3", capacity: 6, available: true },
-  ];
-
-  // Progress Steps
+  const nextStep = () => { if (currentStep < 4) setCurrentStep(currentStep + 1); };
+  const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
+  const handleBack = () => { currentStep === 1 ? router.push("/") : prevStep(); };
+  const canProceed = () => totalItems > 0;
+  
   const steps = [
     { id: 1, title: t('cartStep'), description: t('confirmOrder') },
     { id: 2, title: t('serviceStep'), description: t('selectService') },
@@ -131,87 +187,22 @@ export default function CartPage() {
     { id: 4, title: t('confirmStep'), description: t('verifyInfo') },
   ];
 
-  // Cart Functions
-  const updateFoodQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFoodItem(id);
-    } else {
-      setFoodItems((items) =>
-        items.map((item) =>
-          item.id === id ? { ...item, quantity: newQuantity } : item
-        )
-      );
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-16 w-16 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
-  const updatePackageQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removePackageItem(id);
-    } else {
-      setPackageItems((items) =>
-        items.map((item) =>
-          item.id === id ? { ...item, quantity: newQuantity } : item
-        )
-      );
-    }
-  };
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 text-red-500">
+        {error}
+      </div>
+    );
+  }
 
-  const removeFoodItem = (id: number) => {
-    setFoodItems((items) => items.filter((item) => item.id !== id));
-  };
-
-  const removePackageItem = (id: number) => {
-    setPackageItems((items) => items.filter((item) => item.id !== id));
-  };
-
-  // Calculations
-  const foodSubtotal = foodItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const packageSubtotal = packageItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const subtotal = foodSubtotal + packageSubtotal;
-  const deliveryFee = serviceType === "delivery" ? (subtotal >= 50 ? 0 : 8) : 0;
-  const discount = promoCode === "SAVE10" ? subtotal * 0.1 : 0;
-  const total = subtotal + deliveryFee - discount;
-  const totalItems = foodItems.length + packageItems.length;
-
-  // Step Navigation
-  const nextStep = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
-
-  const handleBack = () => {
-    if (currentStep === 1) {
-      router.push("/");
-    } else {
-      prevStep();
-    }
-  };
-
-  const canProceed = () => {
-    switch (currentStep) {
-      case 1:
-        return totalItems > 0;
-      case 2:
-        if (serviceType === "delivery") return selectedAddress !== "";
-        if (serviceType === "dine-in") return tableNumber !== "";
-        return true;
-      case 3:
-        return paymentMethod !== "";
-      default:
-        return true;
-    }
-  };
-
-  // Progress Bar Component
   const ProgressBar = () => (
     <div className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4 py-6">
@@ -221,19 +212,13 @@ export default function CartPage() {
               <div className="flex flex-col items-center text-center w-28">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all z-10 ${
-                    currentStep > step.id
-                      ? "bg-green-500 text-white"
-                      : currentStep === step.id
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-200 text-gray-600"
+                    currentStep > step.id ? "bg-green-500 text-white" : currentStep === step.id ? "bg-orange-500 text-white" : "bg-gray-200 text-gray-600"
                   }`}
                 >
                   {currentStep > step.id ? <Check className="w-5 h-5" /> : step.id}
                 </div>
                 <div className="mt-2">
-                  <div className={`text-sm font-medium ${
-                    currentStep >= step.id ? "text-orange-600" : "text-gray-500"
-                  }`}>
+                  <div className={`text-sm font-medium ${currentStep >= step.id ? "text-orange-600" : "text-gray-500"}`}>
                     {step.title}
                   </div>
                 </div>
@@ -250,59 +235,54 @@ export default function CartPage() {
     </div>
   );
 
-  // Step 1: Cart Items
   const CartItems = () => (
     <div className="space-y-6">
-      {foodItems.length > 0 && (
+      {cartData?.menu_items && cartData.menu_items.length > 0 && (
         <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 p-4">
             <CardTitle className="text-white font-bold text-lg flex items-center">
-              🍜 {t('individualDishes')} ({foodItems.length})
-              <span className="ml-2 bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm">
-                ¥{foodSubtotal.toFixed(2)}
-              </span>
+              🍜 {t('individualDishes')} ({cartData.menu_items.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
-            {foodItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md">
+            {cartData.menu_items.map((item) => (
+              <div key={item.id} className="flex items-end gap-4 p-4 bg-white rounded-2xl shadow-md">
                 <Image
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.name}
-                  width={80}
-                  height={80}
+                  src={getFullImageUrl(item.image_url)}
+                  alt={item.menu_name}
+                  width={100}
+                  height={100}
                   className="rounded-xl object-cover"
+                  onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                 />
                 <div className="flex-1">
-                  <h4 className="font-bold text-gray-900">{item.name}</h4>
-                  <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                  <div className="flex justify-between">
+                    <h4 className="font-bold text-gray-900">{item.menu_name}</h4>
+                    {item.category_name && <Badge variant="outline">{item.category_name}</Badge>}
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{item.menu_description}</p>
+                  <div className="text-xs text-gray-500 space-y-1 my-2">
+                      {item.variants.map((variant, idx) => <div key={idx}><strong>{t('variant')}:</strong> {variant.variant_name} (+RM{Number(variant.variant_price).toFixed(2)})</div>)}
+                      {item.addons.map((addon, idx) => <div key={idx}><strong>{t('addon')}:</strong> {addon.addon_name} (+RM{Number(addon.addon_price).toFixed(2)})</div>)}
+                  </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-orange-500">
-                      ¥{item.price.toFixed(2)}
+                      RM{calculateItemTotal(item).toFixed(2)}
                     </span>
                     <div className="flex items-center gap-3">
-                      <button
-                        className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center hover:bg-orange-200 transition-colors"
-                        onClick={() => updateFoodQuantity(item.id, item.quantity - 1)}
-                      >
+                      <button className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center hover:bg-orange-200 transition-colors">
                         <Minus className="h-4 w-4" />
                       </button>
                       <span className="font-semibold min-w-[30px] text-center">
                         {item.quantity}
                       </span>
-                      <button
-                        className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full flex items-center justify-center hover:from-orange-600 hover:to-red-600 transition-all"
-                        onClick={() => updateFoodQuantity(item.id, item.quantity + 1)}
-                      >
+                      <button className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full flex items-center justify-center hover:from-orange-600 hover:to-red-600 transition-all">
                         <Plus className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
                 </div>
-                <button
-                  className="w-8 h-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full flex items-center justify-center transition-colors"
-                  onClick={() => removeFoodItem(item.id)}
-                >
+                <button className="w-8 h-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full flex items-center justify-center transition-colors">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -311,77 +291,62 @@ export default function CartPage() {
         </Card>
       )}
 
-      {packageItems.length > 0 && (
+      {cartData?.package_items && cartData.package_items.length > 0 && (
         <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 p-4">
             <CardTitle className="text-white font-bold text-lg flex items-center">
-              🍱 {t('packageCombos')} ({packageItems.length})
-              <span className="ml-2 bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm">
-                ¥{packageSubtotal.toFixed(2)}
-              </span>
+              🍱 {t('packageCombos')} ({cartData.package_items.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
-            {packageItems.map((item) => (
-              <div key={item.id} className="p-4 bg-white rounded-2xl shadow-md border border-orange-100">
-                <div className="flex items-start gap-4">
-                  <Image
-                    src={item.image || "/placeholder.svg"}
-                    alt={item.name}
-                    width={80}
-                    height={80}
-                    className="rounded-xl object-cover"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-gray-900">{item.name}</h4>
-                      <button
-                        className="w-8 h-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full flex items-center justify-center transition-colors"
-                        onClick={() => removePackageItem(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+            {cartData.package_items.map((pkg) => (
+              <div key={pkg.id} className="flex items-start gap-4 p-4 bg-white rounded-2xl shadow-md border border-orange-100">
+                <Image
+                  src={getFullImageUrl(pkg.package_image)}
+                  alt={pkg.package_name}
+                  width={80}
+                  height={80}
+                  className="rounded-xl object-cover"
+                  onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                />
+                <div className="flex-1">
+                    <div className="flex justify-between">
+                        <h4 className="font-bold text-gray-900">{pkg.package_name}</h4>
+                        {pkg.category_name && <Badge variant="outline">{pkg.category_name}</Badge>}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Package className="h-4 w-4 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-600">{item.serves}</span>
-                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{pkg.package_description}</p>
                     <div className="mb-3 p-3 bg-gray-50 rounded-xl border">
                       <p className="text-xs font-medium text-gray-700 mb-2">{t('packageIncludes')}:</p>
-                      <div className="grid grid-cols-2 gap-1">
-                        {item.packageContents.map((content, idx) => (
-                          <div key={idx} className="text-xs text-gray-600 flex items-center">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mr-2"></div>
-                            {content}
+                      {pkg.menus.map(menu => (
+                          <div key={menu.id} className="text-xs text-gray-600 ml-2 my-1">
+                              <strong>{menu.menu_name}</strong>
+                              <div className="pl-2">
+                                  {menu.variants.map((v, i) => <div key={i}>- {v.variant_name} (+RM{Number(v.variant_price).toFixed(2)})</div>)}
+                                  {menu.addons.map((a, i) => <div key={i}>- {a.addon_name} (+RM{Number(a.addon_price).toFixed(2)})</div>)}
+                              </div>
                           </div>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-lg font-bold text-orange-500">
-                        ¥{item.price.toFixed(2)}
+                        RM{calculatePackageTotal(pkg).toFixed(2)}
                       </span>
                       <div className="flex items-center gap-3">
-                        <button
-                          className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center hover:bg-orange-200 transition-colors"
-                          onClick={() => updatePackageQuantity(item.id, item.quantity - 1)}
-                        >
+                        <button className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center hover:bg-orange-200 transition-colors">
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="font-semibold min-w-[30px] text-center">
-                          {item.quantity}
+                          {pkg.quantity}
                         </span>
-                        <button
-                          className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full flex items-center justify-center hover:from-orange-600 hover:to-red-600 transition-all"
-                          onClick={() => updatePackageQuantity(item.id, item.quantity + 1)}
-                        >
+                        <button className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full flex items-center justify-center hover:from-orange-600 hover:to-red-600 transition-all">
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   </div>
-                </div>
+                <button className="w-8 h-8 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full flex items-center justify-center transition-colors">
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             ))}
           </CardContent>
@@ -390,367 +355,6 @@ export default function CartPage() {
     </div>
   );
 
-  // Step 2: Service Type Selection
-  const ServiceTypeSelection = () => (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-lg rounded-2xl">
-        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-          <CardTitle className="flex items-center">
-            <UtensilsCrossed className="mr-2 h-5 w-5" />
-            {t('selectService')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <RadioGroup value={serviceType} onValueChange={setServiceType} className="space-y-4">
-            <Label htmlFor="delivery" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${serviceType === 'delivery' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="delivery" id="delivery" />
-              <Car className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-900">{t('delivery')}</div>
-                    <div className="text-sm text-gray-600">{t('deliveryToAddress')}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-orange-500">
-                      {subtotal >= 50 ? t('free') : "¥8.00"}
-                    </div>
-                    {subtotal < 50 && (
-                      <div className="text-xs text-gray-500">{t('freeDelivery50')}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Label>
-            <Label htmlFor="pickup" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${serviceType === 'pickup' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="pickup" id="pickup" />
-              <Package className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-900">{t('pickup')}</div>
-                    <div className="text-sm text-gray-600">{t('pickupInStore')}</div>
-                  </div>
-                  <div className="font-semibold text-green-600">{t('free')}</div>
-                </div>
-              </div>
-            </Label>
-            <Label htmlFor="dine-in" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${serviceType === 'dine-in' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="dine-in" id="dine-in" />
-              <Home className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-900">{t('dineIn')}</div>
-                    <div className="text-sm text-gray-600">{t('dineInRestaurant')}</div>
-                  </div>
-                  <div className="font-semibold text-green-600">{t('free')}</div>
-                </div>
-              </div>
-            </Label>
-          </RadioGroup>
-        </CardContent>
-      </Card>
-
-      {serviceType === "delivery" && (
-        <Card className="border-0 shadow-lg rounded-2xl">
-          <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-            <CardTitle className="flex items-center">
-              <MapPin className="mr-2 h-5 w-5" />
-              {t('selectDeliveryAddress')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-3">
-              {addresses.map((address) => (
-                <div
-                  key={address.id}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedAddress === address.id
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:border-orange-300"
-                  }`}
-                  onClick={() => setSelectedAddress(address.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedAddress === address.id ? "border-orange-500" : "border-gray-300"
-                      }`}>
-                        {selectedAddress === address.id && (
-                          <div className="w-2.5 h-2.5 bg-orange-500 rounded-full"></div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-gray-900">{address.label}</span>
-                          {address.isDefault && (
-                            <Badge variant="secondary" className="text-xs">{t('default')}</Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600">{address.address}</div>
-                      </div>
-                    </div>
-                    <Edit3 className="h-4 w-4 text-gray-400" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4">
-              <Label htmlFor="delivery-notes" className="text-sm font-medium text-gray-700">
-                {t('deliveryNotes')} ({t('optional')})
-              </Label>
-              <Textarea
-                id="delivery-notes"
-                placeholder={t('notesPlaceholder')}
-                value={deliveryNotes}
-                onChange={(e) => setDeliveryNotes(e.target.value)}
-                className="mt-2"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {serviceType === "dine-in" && (
-        <Card className="border-0 shadow-lg rounded-2xl">
-          <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-            <CardTitle className="flex items-center">
-              <Users className="mr-2 h-5 w-5" />
-              {t('selectTable')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-              {tables.map((table) => (
-                <div
-                  key={table.id}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
-                    !table.available
-                      ? "border-gray-200 bg-gray-50 cursor-not-allowed text-gray-400"
-                      : tableNumber === table.number
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:border-orange-300"
-                  }`}
-                  onClick={() => table.available && setTableNumber(table.number)}
-                >
-                  <div className="text-lg font-bold">{table.number}</div>
-                  <div className="text-sm">{table.capacity}{t('personsTable')}</div>
-                  <div className={`text-xs mt-1 font-semibold ${
-                    table.available ? "text-green-600" : "text-red-500"
-                  }`}>
-                    {table.available ? t('available') : t('occupied')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-
-  // Step 3: Payment Method Selection
-  const PaymentMethodSelection = () => (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-lg rounded-2xl">
-        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-          <CardTitle className="flex items-center">
-            <CreditCard className="mr-2 h-5 w-5" />
-            {t('selectPayment')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-4">
-            <Label htmlFor="card" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${paymentMethod === 'card' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="card" id="card" />
-              <CreditCard className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-900">{t('creditCard')}</div>
-                <div className="text-sm text-gray-600">{t('creditCardDesc')}</div>
-              </div>
-            </Label>
-            <Label htmlFor="mobile" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${paymentMethod === 'mobile' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="mobile" id="mobile" />
-              <Smartphone className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-900">{t('mobilePayment')}</div>
-                <div className="text-sm text-gray-600">{t('mobilePaymentDesc')}</div>
-              </div>
-            </Label>
-            <Label htmlFor="cash" className={`flex items-center space-x-3 p-4 border-2 rounded-xl transition-colors cursor-pointer ${paymentMethod === 'cash' ? 'border-orange-500 bg-orange-50' : 'hover:bg-orange-50'}`}>
-              <RadioGroupItem value="cash" id="cash" />
-              <Wallet className="h-6 w-6 text-orange-500" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-900">{t('cashPayment')}</div>
-                <div className="text-sm text-gray-600">
-                  {serviceType === "delivery" ? t('cashOnDelivery') : t('payInStore')}
-                </div>
-              </div>
-            </Label>
-          </RadioGroup>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-lg rounded-2xl">
-        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-          <CardTitle className="text-base font-semibold">{t('promoCode')}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex gap-2">
-            <Input
-              placeholder={t('enterPromoCode')}
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-              className="flex-1"
-            />
-            <Button variant="outline" className="px-6 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
-              {t('apply')}
-            </Button>
-          </div>
-          {promoCode === "SAVE10" && (
-            <div className="mt-3 p-3 bg-green-50 rounded-lg">
-              <div className="text-sm text-green-700 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {t('promoCodeApplied')}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  // Step 4: Order Confirmation
-  const OrderConfirmation = () => (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-lg rounded-2xl">
-        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-          <CardTitle className="flex items-center">
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            {t('orderDetails')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-2">
-          {foodItems.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-4 bg-white rounded-xl shadow">
-              <div className="flex items-center space-x-3">
-                <Image
-                  src={item.image}
-                  alt={item.name}
-                  width={40}
-                  height={40}
-                  className="rounded-lg object-cover"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">{item.name}</div>
-                  <div className="text-sm text-gray-600">x{item.quantity}</div>
-                </div>
-              </div>
-              <div className="font-semibold text-gray-800">
-                ¥{(item.price * item.quantity).toFixed(2)}
-              </div>
-            </div>
-          ))}
-          {packageItems.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-4 bg-white rounded-xl shadow">
-              <div className="flex items-center space-x-3">
-                <Image
-                  src={item.image}
-                  alt={item.name}
-                  width={40}
-                  height={40}
-                  className="rounded-lg object-cover"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">{item.name}</div>
-                  <div className="text-sm text-gray-600">x{item.quantity}</div>
-                </div>
-              </div>
-              <div className="font-semibold text-gray-800">
-                ¥{(item.price * item.quantity).toFixed(2)}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-lg rounded-2xl">
-        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-t-2xl">
-          <CardTitle className="flex items-center">
-            <MapPin className="mr-2 h-5 w-5" />
-            {t('serviceDetails')} & {t('paymentDetails')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6 space-y-4 divide-y">
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">{t('serviceMethod')}</span>
-              <div className="flex items-center space-x-2">
-                {serviceType === "delivery" && <Car className="h-4 w-4 text-orange-500" />}
-                {serviceType === "pickup" && <Package className="h-4 w-4 text-orange-500" />}
-                {serviceType === "dine-in" && <Home className="h-4 w-4 text-orange-500" />}
-                <span className="font-medium">
-                  {serviceType === "delivery" ? t('delivery') :
-                   serviceType === "pickup" ? t('pickup') : t('dineIn')}
-                </span>
-              </div>
-            </div>
-            {serviceType === "delivery" && selectedAddress && (
-              <div className="flex items-start justify-between">
-                <span className="text-gray-600">{t('deliveryAddress')}</span>
-                <div className="text-right max-w-xs">
-                  <div className="font-medium">
-                    {addresses.find(a => a.id === selectedAddress)?.label}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {addresses.find(a => a.id === selectedAddress)?.address}
-                  </div>
-                </div>
-              </div>
-            )}
-            {serviceType === "dine-in" && tableNumber && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">{t('tableNumber')}</span>
-                <span className="font-medium">{tableNumber}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">{t('estimatedTime')}</span>
-              <span className="font-medium">
-                {serviceType === "delivery" ? `30-45 ${t('minutes')}` :
-                 serviceType === "pickup" ? `15-20 ${t('minutes')}` : t('immediately')}
-              </span>
-            </div>
-            {deliveryNotes && (
-              <div className="flex items-start justify-between">
-                <span className="text-gray-600">{t('deliveryNotes')}</span>
-                <div className="text-right max-w-xs">
-                  <span className="text-sm text-gray-600">{deliveryNotes}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="space-y-3 pt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">{t('paymentMethod')}</span>
-              <div className="flex items-center space-x-2">
-                {paymentMethod === "card" && <CreditCard className="h-4 w-4 text-orange-500" />}
-                {paymentMethod === "mobile" && <Smartphone className="h-4 w-4 text-orange-500" />}
-                {paymentMethod === "cash" && <Wallet className="h-4 w-4 text-orange-500" />}
-                <span className="font-medium">
-                  {paymentMethod === "card" ? t('creditCard') :
-                   paymentMethod === "mobile" ? t('mobilePayment') : t('cashPayment')}
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  // Main Render
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-lg">
@@ -780,7 +384,7 @@ export default function CartPage() {
       <ProgressBar />
 
       <main className="container mx-auto px-4 py-8">
-        {totalItems === 0 && currentStep === 1 ? (
+        {totalItems === 0 ? (
           <div className="text-center py-16">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-300 mb-4" />
             <h2 className="text-xl font-semibold text-gray-600 mb-2">{t('cartEmpty')}</h2>
@@ -795,9 +399,7 @@ export default function CartPage() {
           <div className="grid lg:grid-cols-3 gap-8 items-start">
             <div className="lg:col-span-2">
               {currentStep === 1 && <CartItems />}
-              {currentStep === 2 && <ServiceTypeSelection />}
-              {currentStep === 3 && <PaymentMethodSelection />}
-              {currentStep === 4 && <OrderConfirmation />}
+              {/* Steps 2, 3, 4 would be rendered here based on currentStep */}
             </div>
 
             <div className="space-y-6 sticky top-28">
@@ -812,87 +414,39 @@ export default function CartPage() {
                   <div className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('itemSubtotal')}</span>
-                      <span>¥{subtotal.toFixed(2)}</span>
+                      <span>RM{subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">{t('deliveryFee')}</span>
                       <span>
-                        {deliveryFee === 0 ? t('free') : `¥${deliveryFee.toFixed(2)}`}
+                        {deliveryFee === 0 ? t('free') : `RM${deliveryFee.toFixed(2)}`}
                       </span>
                     </div>
                     {discount > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>{t('discount')}</span>
-                        <span>-¥{discount.toFixed(2)}</span>
+                        <span>-RM{discount.toFixed(2)}</span>
                       </div>
                     )}
                     <Separator />
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center text-gray-600">
-                            <Clock className="mr-2 h-5 w-5 text-orange-500" />
-                            <span>{t('estimatedTime')}</span>
-                        </div>
-                        <span className="font-semibold">
-                            {serviceType === "delivery" ? `30-45 ${t('minutes')}` :
-                             serviceType === "pickup" ? `15-20 ${t('minutes')}` : t('immediately')}
-                        </span>
-                    </div>
-                    <Separator />
                     <div className="flex justify-between text-xl font-bold">
                       <span>{t('total')}</span>
-                      <span className="text-orange-500">¥{total.toFixed(2)}</span>
+                      <span className="text-orange-500">RM{total.toFixed(2)}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <div className="space-y-3">
-                {currentStep < 4 ? (
-                  <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-lg py-6 rounded-xl shadow-lg"
-                    onClick={nextStep}
-                    disabled={!canProceed()}
-                  >
-                    {currentStep === 1 ? t('selectServiceBtn') :
-                     currentStep === 2 ? t('selectPaymentBtn') : t('confirmOrderBtn')}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full bg-green-500 hover:bg-green-600 text-lg py-6 rounded-xl shadow-lg"
-                    onClick={() => alert("订单提交成功！")}
-                  >
-                    <CheckCircle className="mr-2 h-5 w-5" />
-                    {t('submitOrder')} ¥{total.toFixed(2)}
-                  </Button>
-                )}
-
-                {currentStep > 1 && (
-                  <Button
-                    variant="outline"
-                    className="w-full py-3"
-                    onClick={prevStep}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    {t('previousStep')}
-                  </Button>
-                )}
+                <Button
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-lg py-6 rounded-xl shadow-lg"
+                  onClick={nextStep}
+                  disabled={!canProceed()}
+                >
+                  {t('selectServiceBtn')}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
               </div>
-
-              {subtotal > 0 && subtotal < 20 && (
-                <Card className="border-yellow-300 bg-yellow-50">
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <Badge variant="outline" className="mb-2 border-yellow-400 text-yellow-700">
-                        {t('tip')}
-                      </Badge>
-                      <div className="text-sm text-yellow-800">
-                        {t('minOrderWarning')}¥{(20 - subtotal).toFixed(2)}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
         )}
