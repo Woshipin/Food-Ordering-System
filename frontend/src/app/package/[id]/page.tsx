@@ -175,6 +175,7 @@ export default function PackageDetailPage() {
       toast.success(t("Package added to cart successfully") || "Package added to cart successfully!", {
         id: toastId,
       });
+      router.push("/package");
     } catch (error: any) {
       console.error("Failed to add package to cart:", error);
       toast.error(t("Add To Cart Failed") || "Failed to add package to cart. Please try again.", {
