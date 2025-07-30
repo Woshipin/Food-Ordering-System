@@ -4,24 +4,17 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as LucideIcons from "lucide-react";
 import {
   Minus,
   Plus,
   Trash2,
   ShoppingCart,
-  CreditCard,
   ArrowLeft,
   Package,
   ArrowRight,
-  Car,
-  UtensilsCrossed,
-  Wallet,
-  Smartphone,
   Check,
   Loader2,
-  Store,
-  Truck,
-  Banknote,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
@@ -92,7 +85,30 @@ interface CartData {
     package_items: CartPackageItem[];
 }
 
-// --- Helper function: Build complete image URL ---
+interface ServiceMethod {
+    name: string;
+    display_name: string;
+    description: string;
+    details: string;
+    fee: number | string; // 允许 fee 是字符串或数字
+    icon_name: string;
+}
+
+interface PaymentMethod {
+    name: string;
+    display_name: string;
+    description: string;
+    icon_name: string;
+}
+
+const Icon = ({ name, ...props }: { name: string } & LucideIcons.LucideProps) => {
+    const LucideIcon = LucideIcons[name as keyof typeof LucideIcons] as React.ComponentType<LucideIcons.LucideProps>;
+    if (!LucideIcon) {
+        return <LucideIcons.HelpCircle {...props} />;
+    }
+    return <LucideIcon {...props} />;
+};
+
 const getFullImageUrl = (imagePath: string | null | undefined): string => {
     if (!imagePath) {
         return "/placeholder.svg";
@@ -116,30 +132,49 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Step 2 - Service selection
-  const [serviceType, setServiceType] = useState("delivery");
+  const [serviceMethods, setServiceMethods] = useState<ServiceMethod[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+
+  const [serviceType, setServiceType] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
 
-  // Step 3 - Payment selection
-  const [paymentMethod, setPaymentMethod] = useState("credit");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
 
-  // Pricing calculations
-  const deliveryFee = serviceType === "delivery" ? 8 : 0;
   const [promoCode, setPromoCode] = useState("");
   const discount = promoCode === "SAVE10" ? 0.1 : 0;
+  
+  // 【修正】使用 Number() 强制将 fee 转换为数字
+  const deliveryFee = Number(serviceMethods.find(s => s.name === serviceType)?.fee || 0);
 
   useEffect(() => {
-    const fetchCart = async () => {
+    const fetchInitialData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await axios.get("/cart");
-        setCartData(response.data.cart);
-      } catch (err) {
-        setError(t("errorFetchingCart") || "Failed to fetch cart data.");
-        toast.error(t("errorFetchingCart") || "Failed to fetch cart data.");
+        const [cartResponse, optionsResponse] = await Promise.all([
+            axios.get("/cart"),
+            axios.get("/checkout-options")
+        ]);
+
+        setCartData(cartResponse.data.cart);
+        
+        const optionsData = optionsResponse.data.data;
+        setServiceMethods(optionsData.service_methods);
+        setPaymentMethods(optionsData.payment_methods);
+
+        if (optionsData.service_methods.length > 0) {
+            setServiceType(optionsData.service_methods[0].name);
+        }
+        if (optionsData.payment_methods.length > 0) {
+            setPaymentMethod(optionsData.payment_methods[0].name);
+        }
+
+      } catch (err: any) {
+        const errorMessage = err.response?.data?.message || "Failed to fetch page data.";
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -147,18 +182,17 @@ export default function CartPage() {
 
     if (!authIsLoading) {
       if (isAuthenticated) {
-        fetchCart();
+        fetchInitialData();
       } else {
         router.push("/auth/login");
       }
     }
-  }, [authIsLoading, isAuthenticated, router, t]);
+  }, [authIsLoading, isAuthenticated, router]);
   
-  // --- Handlers for quantity changes ---
   const handleUpdateMenuQuantity = (menuId: number, newQuantity: number) => {
     setCartData(prevCart => {
       if (!prevCart) return null;
-      const updatedCart = JSON.parse(JSON.stringify(prevCart)); // Deep copy
+      const updatedCart = JSON.parse(JSON.stringify(prevCart));
       if (newQuantity > 0) {
         const item = updatedCart.menu_items.find((item: CartMenuItem) => item.id === menuId);
         if (item) item.quantity = newQuantity;
@@ -172,7 +206,7 @@ export default function CartPage() {
   const handleUpdatePackageQuantity = (packageId: number, newQuantity: number) => {
     setCartData(prevCart => {
       if (!prevCart) return null;
-      const updatedCart = JSON.parse(JSON.stringify(prevCart)); // Deep copy
+      const updatedCart = JSON.parse(JSON.stringify(prevCart));
       if (newQuantity > 0) {
         const pkg = updatedCart.package_items.find((pkg: CartPackageItem) => pkg.id === packageId);
         if (pkg) pkg.quantity = newQuantity;
@@ -199,7 +233,7 @@ export default function CartPage() {
       });
       return (Number(basePrice) + packageExtras) * pkg.quantity;
   };
-
+  
   const subtotal = cartData
     ? cartData.menu_items.reduce((sum, item) => sum + calculateItemTotal(item), 0) +
       cartData.package_items.reduce((sum, pkg) => sum + calculatePackageTotal(pkg), 0)
@@ -400,7 +434,7 @@ export default function CartPage() {
             <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
                     <CardTitle className="flex items-center text-xl">
-                        <UtensilsCrossed className="mr-3 h-6 w-6" />
+                        <Icon name="UtensilsCrossed" className="mr-3 h-6 w-6" />
                         Individual Dishes
                     </CardTitle>
                 </CardHeader>
@@ -434,53 +468,31 @@ export default function CartPage() {
     <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
         <CardTitle className="flex items-center text-xl">
-          <Car className="mr-3 h-6 w-6" />
+          <Icon name="Car" className="mr-3 h-6 w-6" />
           Choose Your Service
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 md:p-8">
         <RadioGroup value={serviceType} onValueChange={setServiceType} className="space-y-6">
-          <Label htmlFor="delivery" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${serviceType === 'delivery' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-            <RadioGroupItem value="delivery" id="delivery" />
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Truck className="h-6 w-6 text-orange-600" />
+          {serviceMethods.map((method) => (
+            <Label key={method.name} htmlFor={method.name} className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${serviceType === method.name ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+              <RadioGroupItem value={method.name} id={method.name} />
+              <div className="flex items-center space-x-4 flex-1">
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <Icon name={method.icon_name} className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{method.display_name}</div>
+                  <p className="text-sm text-gray-600">{method.description}</p>
+                  {method.details && (
+                    <p className={`text-sm font-medium ${Number(method.fee) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {method.details}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <div className="text-lg font-semibold">Delivery</div>
-                <p className="text-sm text-gray-600">Get your food delivered to your doorstep</p>
-                <p className="text-sm text-orange-600 font-medium">Delivery fee: RM8.00</p>
-              </div>
-            </div>
-          </Label>
-
-          <Label htmlFor="pickup" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${serviceType === 'pickup' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-            <RadioGroupItem value="pickup" id="pickup" />
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <Store className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <div className="text-lg font-semibold">Pick Up</div>
-                <p className="text-sm text-gray-600">Collect your order from our restaurant</p>
-                <p className="text-sm text-green-600 font-medium">No additional fee</p>
-              </div>
-            </div>
-          </Label>
-
-          <Label htmlFor="dinein" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${serviceType === 'dinein' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-            <RadioGroupItem value="dinein" id="dinein" />
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <UtensilsCrossed className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <div className="text-lg font-semibold">Dine In</div>
-                <p className="text-sm text-gray-600">Enjoy your meal at our restaurant</p>
-                <p className="text-sm text-blue-600 font-medium">Table service included</p>
-              </div>
-            </div>
-          </Label>
+            </Label>
+          ))}
         </RadioGroup>
 
         {serviceType === 'delivery' && (
@@ -527,63 +539,26 @@ export default function CartPage() {
     <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
         <CardTitle className="flex items-center text-xl">
-          <CreditCard className="mr-3 h-6 w-6" />
+          <Icon name="CreditCard" className="mr-3 h-6 w-6" />
           Payment Method
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 md:p-8">
         <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-6">
-            <Label htmlFor="credit" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <RadioGroupItem value="credit" id="credit" />
+          {paymentMethods.map((method) => (
+            <Label key={method.name} htmlFor={method.name} className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === method.name ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <RadioGroupItem value={method.name} id={method.name} />
                 <div className="flex items-center space-x-4 flex-1">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <CreditCard className="h-6 w-6 text-blue-600" />
+                    <Icon name={method.icon_name} className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                    <div className="text-lg font-semibold">Credit Card</div>
-                    <p className="text-sm text-gray-600">Pay securely with your credit card</p>
+                    <div className="text-lg font-semibold">{method.display_name}</div>
+                    <p className="text-sm text-gray-600">{method.description}</p>
                 </div>
                 </div>
             </Label>
-            
-            <Label htmlFor="debit" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'debit' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <RadioGroupItem value="debit" id="debit" />
-                <div className="flex items-center space-x-4 flex-1">
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Wallet className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                    <div className="text-lg font-semibold">Debit Card</div>
-                    <p className="text-sm text-gray-600">Pay directly from your bank account</p>
-                </div>
-                </div>
-            </Label>
-
-            <Label htmlFor="cash" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'cash' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <RadioGroupItem value="cash" id="cash" />
-                <div className="flex items-center space-x-4 flex-1">
-                <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <Banknote className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div>
-                    <div className="text-lg font-semibold">Cash</div>
-                    <p className="text-sm text-gray-600">Pay with cash upon delivery/pickup</p>
-                </div>
-                </div>
-            </Label>
-
-            <Label htmlFor="tng" className={`flex items-center space-x-4 p-6 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'tng' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <RadioGroupItem value="tng" id="tng" />
-                <div className="flex items-center space-x-4 flex-1">
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <Smartphone className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                    <div className="text-lg font-semibold">Touch 'n Go eWallet</div>
-                    <p className="text-sm text-gray-600">Quick and secure mobile payment</p>
-                </div>
-                </div>
-            </Label>
+          ))}
         </RadioGroup>
 
         <div className="mt-8 p-6 bg-gray-50 rounded-2xl">
@@ -610,20 +585,24 @@ export default function CartPage() {
     </Card>
   );
 
-  const OrderConfirmation = () => (
+  const OrderConfirmation = () => {
+    const selectedService = serviceMethods.find(s => s.name === serviceType);
+    const selectedPayment = paymentMethods.find(p => p.name === paymentMethod);
+
+    return (
     <div className="space-y-8">
         <div className="grid md:grid-cols-2 gap-8">
              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
                     <CardTitle className="flex items-center text-xl">
-                        <Car className="mr-3 h-6 w-6" />
+                        <Icon name="Car" className="mr-3 h-6 w-6" />
                         Service Details
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 text-sm space-y-3">
                     <div className="flex justify-between">
                         <span className="text-gray-600">Service Type:</span>
-                        <span className="font-medium capitalize">{serviceType}</span>
+                        <span className="font-medium capitalize">{selectedService?.display_name || serviceType}</span>
                     </div>
                     {serviceType === 'delivery' && deliveryAddress && (
                         <div className="flex justify-between items-start gap-4">
@@ -648,7 +627,7 @@ export default function CartPage() {
              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
                     <CardTitle className="flex items-center text-xl">
-                        <CreditCard className="mr-3 h-6 w-6" />
+                        <Icon name="CreditCard" className="mr-3 h-6 w-6" />
                         Payment Details
                     </CardTitle>
                 </CardHeader>
@@ -656,7 +635,7 @@ export default function CartPage() {
                      <div className="flex justify-between">
                         <span className="text-gray-600">Payment Method:</span>
                         <span className="font-medium capitalize">
-                            {paymentMethod === 'tng' ? 'Touch \'n Go eWallet' : paymentMethod === 'credit' ? 'Credit Card' : paymentMethod === 'debit' ? 'Debit Card' : 'Cash'}
+                            {selectedPayment?.display_name || paymentMethod}
                         </span>
                     </div>
                 </CardContent>
@@ -667,7 +646,7 @@ export default function CartPage() {
             <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
                     <CardTitle className="flex items-center text-xl">
-                        <UtensilsCrossed className="mr-3 h-6 w-6" />
+                        <Icon name="UtensilsCrossed" className="mr-3 h-6 w-6" />
                         Individual Dishes
                     </CardTitle>
                 </CardHeader>
@@ -695,7 +674,7 @@ export default function CartPage() {
             </Card>
         )}
     </div>
-  );
+  )};
 
   const getStepContent = () => {
     switch (currentStep) {

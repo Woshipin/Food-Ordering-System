@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             MenuPackageSeeder::class,
             GallerySeeder::class,
+            ServiceMethodSeeder::class,
+            PaymentMethodSeeder::class,
         ]);
     }
 }

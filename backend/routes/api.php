@@ -7,6 +7,7 @@ use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MenuPackageController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CheckoutOptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::group([
@@ -41,6 +42,9 @@ Route::post('/contact', [ContactMessageController::class, 'store']);
 
 // Gallery Routes
 Route::get('/galleries', [GalleryController::class, 'index']);
+
+// Checkout Option Routes
+Route::get('/checkout-options', [CheckoutOptionController::class, 'index'])->name('checkout-options.index');
 
 // Cart Routes (Protected by Auth)
 Route::group(['middleware' => 'auth:api'], function () {
