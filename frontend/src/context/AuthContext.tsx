@@ -10,18 +10,27 @@ interface AuthContextType {
     login: (userData: User, token: string) => void;
     logout: () => void;
     isAuthenticated: boolean;
+    isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        const token = localStorage.getItem('auth_token');
-        if (storedUser && token) {
-            setUser(JSON.parse(storedUser));
+        try {
+            const storedUser = localStorage.getItem('user');
+            const token = localStorage.getItem('auth_token');
+            if (storedUser && token) {
+                setUser(JSON.parse(storedUser));
+            }
+        } catch (error) {
+            console.error("Failed to parse user from localStorage", error);
+            setUser(null);
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
@@ -38,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, setUser, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, setUser, login, logout, isAuthenticated: !!user, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
