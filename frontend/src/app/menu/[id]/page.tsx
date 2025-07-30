@@ -187,6 +187,7 @@ export default function MenuDetailPage({
       toast.success(t("Added To Cart Success") || "Item added to cart successfully!", {
         id: toastId,
       });
+      router.push("/menu");
     } catch (error: any) {
       console.error("Failed to add to cart:", error);
       toast.error(
