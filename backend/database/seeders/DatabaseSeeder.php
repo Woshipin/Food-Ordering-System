@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
             GallerySeeder::class,
             ServiceMethodSeeder::class,
             PaymentMethodSeeder::class,
+            HomeCmsSeeder::class,
+            AboutUsCmsSeeder::class,
+            ContactCmsSeeder::class,
         ]);
     }
 }
