@@ -19,8 +19,37 @@ class AboutUsCmsResource extends Resource
     protected static ?string $model = AboutUsCms::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-information-circle';
-    protected static ?string $navigationLabel = 'About Us CMS';
-    protected static ?string $slug = 'about-us';
+    // 指定在导航菜单中所属的分组
+    protected static ?string $navigationGroup = 'About Us CMS Management';
+    // [优化] 按照Filament最佳实践，label应为单数形式
+    protected static ?string $label = 'About Us CMS';
+    // [优化] 添加复数形式的标签，用于页面标题等位置
+    protected static ?string $pluralLabel = 'About Us CMS';
+    // 指定在导航菜单分组中的排序位置
+    protected static ?int $navigationSort = 1;
+
+    // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
+    public static function getNavigationBadge(): ?string
+    {
+        // 返回Category模型的总记录数作为徽章内容
+        return static::getModel()::count();
+    }
+
+    // 定义导航徽章的颜色
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        // 设置徽章颜色为'success'（绿色）
+        return 'success';
+    }
+
+    public static function getUrl(string $name = 'index', array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?\Illuminate\Database\Eloquent\Model $tenant = null): string
+    {
+        // Set the parameters for the edit route
+        $parameters['record'] = AboutUsCms::first()->id;
+
+        // Always return the URL for the 'edit' page
+        return parent::getUrl('edit', $parameters, $isAbsolute, $panel, $tenant);
+    }
 
     public static function form(Form $form): Form
     {
@@ -53,55 +82,12 @@ class AboutUsCmsResource extends Resource
                         Textarea::make('story_description_ms')->label('Description (MS)'),
                     ]),
                 ])->collapsible(),
-
-            Section::make('Achievements')
-                ->schema([
-                    Repeater::make('achievements')
-                        ->schema([
-                            FileUpload::make('icon')->image()->label('Icon'),
-                            TextInput::make('value')->label('Value'),
-                            TextInput::make('label_en')->label('Label (EN)'),
-                            TextInput::make('label_zh')->label('Label (ZH)'),
-                            TextInput::make('label_ms')->label('Label (MS)'),
-                        ])->columns(2)->collapsible(),
-                ])->collapsible(),
-
-            Section::make('Our Teams')
-                ->schema([
-                    Repeater::make('our_teams')
-                        ->schema([
-                            FileUpload::make('image')->image()->label('Image'),
-                            TextInput::make('name')->label('Name'),
-                            TextInput::make('position_en')->label('Position (EN)'),
-                            TextInput::make('position_zh')->label('Position (ZH)'),
-                            TextInput::make('position_ms')->label('Position (MS)'),
-                            Textarea::make('description_en')->label('Description (EN)')->columnSpanFull(),
-                            Textarea::make('description_zh')->label('Description (ZH)')->columnSpanFull(),
-                            Textarea::make('description_ms')->label('Description (MS)')->columnSpanFull(),
-                        ])->columns(2)->collapsible(),
-                ])->collapsible(),
-
-            Section::make('Our Values')
-                ->schema([
-                    Repeater::make('our_values')
-                        ->schema([
-                            FileUpload::make('icon')->image()->label('Icon'),
-                            TextInput::make('title_en')->label('Title (EN)'),
-                            TextInput::make('title_zh')->label('Title (ZH)'),
-                            TextInput::make('title_ms')->label('Title (MS)'),
-                            Textarea::make('description_en')->label('Description (EN)')->columnSpanFull(),
-                            Textarea::make('description_zh')->label('Description (ZH)')->columnSpanFull(),
-                            Textarea::make('description_ms')->label('Description (MS)')->columnSpanFull(),
-                        ])->columns(2)->collapsible(),
-                ])->collapsible(),
         ]);
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListAboutUsCms::route('/'),
-            'create' => Pages\CreateAboutUsCms::route('/create'),
             'edit' => Pages\EditAboutUsCms::route('/{record}/edit'),
         ];
     }

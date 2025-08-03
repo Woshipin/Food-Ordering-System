@@ -13,7 +13,7 @@ class AboutUsCmsSeeder extends Seeder
 {
     public function run(): void
     {
-        AboutUsCms::create([
+        $aboutUs = AboutUsCms::create([
             'hero_title_en' => 'About',
             'hero_title_zh' => '关于我们',
             'hero_title_ms' => 'Tentang Kami',
@@ -29,7 +29,7 @@ class AboutUsCmsSeeder extends Seeder
             'story_description_ms' => 'Kami bermula pada tahun 2010...',
         ]);
 
-        Achievement::create([
+        $aboutUs->achievements()->create([
             'icon' => 'star',
             'value' => '1000+',
             'label_en' => 'Satisfied Customers',
@@ -37,7 +37,7 @@ class AboutUsCmsSeeder extends Seeder
             'label_ms' => 'Pelanggan Puas Hati',
         ]);
 
-        OurTeam::create([
+        $aboutUs->our_teams()->create([
             'name' => 'John Doe',
             'image' => 'john.jpg',
             'position_en' => 'CEO',
@@ -48,7 +48,7 @@ class AboutUsCmsSeeder extends Seeder
             'description_ms' => 'Pemimpin syarikat.',
         ]);
 
-        OurValue::create([
+        $aboutUs->our_values()->create([
             'title_en' => 'Integrity',
             'title_zh' => '诚信',
             'title_ms' => 'Integriti',
