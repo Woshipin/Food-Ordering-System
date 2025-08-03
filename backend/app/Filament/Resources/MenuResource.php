@@ -54,7 +54,7 @@ class MenuResource extends Resource
     // 指定此资源在后台显示的标签名称
     protected static ?string $label = 'Menu Item';
     // 指定在导航菜单中的排序位置
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 12;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string
@@ -516,7 +516,7 @@ class MenuResource extends Resource
             // 定义行操作（每一行记录末尾的操作按钮）
             ->actions([
                 // 查看操作，以模态框形式打开，并设置模态框宽度
-                Actions\ViewAction::make()->modalWidth('5xl'),
+                Actions\ViewAction::make(),
                 // 编辑操作
                 Actions\EditAction::make(),
                 // 删除操作

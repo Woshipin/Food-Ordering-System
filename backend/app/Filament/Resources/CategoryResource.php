@@ -37,7 +37,7 @@ class CategoryResource extends Resource
     // [优化] 添加复数形式的标签，用于页面标题等位置
     protected static ?string $pluralLabel = 'Categories';
     // 指定在导航菜单分组中的排序位置
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 9;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string
@@ -136,7 +136,7 @@ class CategoryResource extends Resource
             // 定义行操作（每一行记录末尾的操作按钮）
             ->actions([
                 // [优化] 查看操作，在模态框中打开，提供更好的用户体验
-                Tables\Actions\ViewAction::make()->modalWidth('md'),
+                Tables\Actions\ViewAction::make(),
                 // 编辑操作
                 Tables\Actions\EditAction::make(),
                 // 删除操作

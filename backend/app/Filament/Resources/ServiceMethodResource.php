@@ -25,7 +25,13 @@ class ServiceMethodResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-truck'; // 使用 Heroicon
 
-    protected static ?string $navigationGroup = 'Shop Configuration';
+    protected static ?string $navigationGroup = 'Cart Management';
+
+    // [优化] 按照Filament最佳实践，label应为单数形式
+    protected static ?string $label = 'Service Method';
+
+    // 指定在导航菜单分组中的排序位置
+    protected static ?int $navigationSort = 15;
 
     public static function getNavigationBadge(): ?string
     {
@@ -142,6 +148,7 @@ class ServiceMethodResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

@@ -39,7 +39,7 @@ class GalleryResource extends Resource
     protected static ?string $pluralLabel = 'Galleries';
 
     // 指定在导航菜单分组中的排序位置
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 14;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string
@@ -143,8 +143,9 @@ class GalleryResource extends Resource
                     ]),
             ])
             ->actions([
-                EditAction::make(),
-                DeleteAction::make(),
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

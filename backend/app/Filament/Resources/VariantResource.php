@@ -40,7 +40,7 @@ class VariantResource extends Resource
     // 指定此资源在后台显示的标签名称
     protected static ?string $label = 'Variant';
     // 指定在导航菜单分组中的排序位置
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 11;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string

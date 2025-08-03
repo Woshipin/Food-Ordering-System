@@ -40,7 +40,7 @@ class AddonResource extends Resource
     // 指定此资源在后台显示的标签名称
     protected static ?string $label = 'Addon';
     // 指定在导航菜单分组中的排序位置
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string

@@ -27,7 +27,7 @@ class MenuPackageResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-gift';
     protected static ?string $navigationGroup = 'Menu Management';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 13;
 
     protected static ?string $modelLabel = 'Menu Package';
     protected static ?string $pluralModelLabel = 'Menu Packages';

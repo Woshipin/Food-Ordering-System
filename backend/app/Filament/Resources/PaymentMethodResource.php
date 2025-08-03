@@ -25,9 +25,13 @@ class PaymentMethodResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationGroup = 'Shop Configuration';
+    protected static ?string $navigationGroup = 'Cart Management';
 
-    protected static ?string $slug = 'payment-methods';
+    // [优化] 按照Filament最佳实践，label应为单数形式
+    protected static ?string $label = 'Payment Method';
+
+    // 指定在导航菜单分组中的排序位置
+    protected static ?int $navigationSort = 16;
 
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string
@@ -122,7 +126,9 @@ class PaymentMethodResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
