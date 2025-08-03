@@ -1,9 +1,7 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ContactCms extends Model
 {
@@ -15,19 +13,4 @@ class ContactCms extends Model
         'contact_description_zh',
         'contact_description_ms',
     ];
-
-    public function contact_infos(): HasMany
-    {
-        return $this->hasMany(ContactInfo::class);
-    }
-
-    public function contact_maps(): HasMany
-    {
-        return $this->hasMany(ContactMap::class);
-    }
-
-    public function contact_faqs(): HasMany
-    {
-        return $this->hasMany(ContactFaq::class);
-    }
 }

@@ -21,8 +21,37 @@ class ContactCmsResource extends Resource
     protected static ?string $model = ContactCms::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-phone-arrow-up-right';
-    protected static ?string $navigationLabel = 'Contact Us CMS';
-    protected static ?string $slug = 'contact-us';
+    // 指定在导航菜单中所属的分组
+    protected static ?string $navigationGroup = 'Contact Management System';
+    // [优化] 按照Filament最佳实践，label应为单数形式
+    protected static ?string $label = 'Contact CMS';
+    // [优化] 添加复数形式的标签，用于页面标题等位置
+    protected static ?string $pluralLabel = 'Contact CMS';
+    // 指定在导航菜单分组中的排序位置
+    protected static ?int $navigationSort = 5;
+
+    // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
+    public static function getNavigationBadge(): ?string
+    {
+        // 返回Category模型的总记录数作为徽章内容
+        return static::getModel()::count();
+    }
+
+    // 定义导航徽章的颜色
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        // 设置徽章颜色为'success'（绿色）
+        return 'success';
+    }
+
+    public static function getUrl(string $name = 'index', array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?\Illuminate\Database\Eloquent\Model $tenant = null): string
+    {
+        // Set the parameters for the edit route
+        $parameters['record'] = ContactCms::first()->id;
+
+        // Always return the URL for the 'edit' page
+        return parent::getUrl('edit', $parameters, $isAbsolute, $panel, $tenant);
+    }
 
     public static function form(Form $form): Form
     {
@@ -40,80 +69,7 @@ class ContactCmsResource extends Resource
                         Textarea::make('contact_description_ms')->label('Description (MS)'),
                     ]),
                 ])->collapsible(),
-
-            Section::make('Contact Infos')
-                ->schema([
-                    Repeater::make('contact_infos')
-                        ->relationship()
-                        ->schema([
-                            Select::make('type')
-                                ->options([
-                                    'phone' => 'Phone',
-                                    'email' => 'Email',
-                                    'address' => 'Address',
-                                    'hours' => 'Hours',
-                                ])->required(),
-                            TextInput::make('value')->required(),
-                            Grid::make(3)->schema([
-                                TextInput::make('label_en')->label('Label (EN)'),
-                                TextInput::make('label_zh')->label('Label (ZH)'),
-                                TextInput::make('label_ms')->label('Label (MS)'),
-                            ]),
-                            Grid::make(3)->schema([
-                                TextInput::make('note_en')->label('Note (EN)'),
-                                TextInput::make('note_zh')->label('Note (ZH)'),
-                                TextInput::make('note_ms')->label('Note (MS)'),
-                            ]),
-                        ])->columns(2)->collapsible(),
-                ])->collapsible(),
-
-            Section::make('Contact Maps')
-                ->schema([
-                    Repeater::make('contact_maps')
-                        ->relationship()
-                        ->schema([
-                            Textarea::make('map_iframe_url')->label('Map Iframe URL')->required(),
-                        ])->collapsible(),
-                ])->collapsible(),
-
-            Section::make('Contact FAQs')
-                ->schema([
-                    Repeater::make('contact_faqs')
-                        ->relationship()
-                        ->schema([
-                            Grid::make(3)->schema([
-                                TextInput::make('question_en')->label('Question (EN)'),
-                                TextInput::make('question_zh')->label('Question (ZH)'),
-                                TextInput::make('question_ms')->label('Question (MS)'),
-                            ]),
-                            Grid::make(3)->schema([
-                                Textarea::make('answer_en')->label('Answer (EN)'),
-                                Textarea::make('answer_zh')->label('Answer (ZH)'),
-                                Textarea::make('answer_ms')->label('Answer (MS)'),
-                            ]),
-                        ])->columns(1)->collapsible(),
-                ])->collapsible(),
         ]);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('contact_title_en')->label('Title (EN)')->searchable(),
-                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
     }
 
     public static function getRelations(): array
@@ -126,8 +82,6 @@ class ContactCmsResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListContactCms::route('/'),
-            'create' => Pages\CreateContactCms::route('/create'),
             'edit' => Pages\EditContactCms::route('/{record}/edit'),
         ];
     }
