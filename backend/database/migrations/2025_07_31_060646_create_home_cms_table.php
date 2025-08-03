@@ -26,43 +26,77 @@ class CreateHomeCmsTable extends Migration
 
             $table->string('hero_background_image')->nullable();
 
-            // Story Section
-            $table->string('story_title_en')->nullable();
-            $table->string('story_title_zh')->nullable();
-            $table->string('story_title_ms')->nullable();
+            // Why Choose Us Section
+            $table->string('why_choose_us_title_en')->nullable();
+            $table->string('why_choose_us_title_zh')->nullable();
+            $table->string('why_choose_us_title_ms')->nullable();
 
-            $table->text('story_description_en')->nullable();
-            $table->text('story_description_zh')->nullable();
-            $table->text('story_description_ms')->nullable();
+            $table->string('feature_fast_delivery_title_en')->nullable();
+            $table->string('feature_fast_delivery_title_zh')->nullable();
+            $table->string('feature_fast_delivery_title_ms')->nullable();
 
-            $table->string('story_image')->nullable();
+            $table->text('feature_fast_delivery_desc_en')->nullable();
+            $table->text('feature_fast_delivery_desc_zh')->nullable();
+            $table->text('feature_fast_delivery_desc_ms')->nullable();
 
-            // Why Choose Us - Block 1
-            $table->string('why_choose_us_1_icon')->nullable();
-            $table->string('why_choose_us_1_title_en')->nullable();
-            $table->string('why_choose_us_1_title_zh')->nullable();
-            $table->string('why_choose_us_1_title_ms')->nullable();
-            $table->text('why_choose_us_1_description_en')->nullable();
-            $table->text('why_choose_us_1_description_zh')->nullable();
-            $table->text('why_choose_us_1_description_ms')->nullable();
+            $table->string('feature_quality_ingredients_title_en')->nullable();
+            $table->string('feature_quality_ingredients_title_zh')->nullable();
+            $table->string('feature_quality_ingredients_title_ms')->nullable();
 
-            // Block 2
-            $table->string('why_choose_us_2_icon')->nullable();
-            $table->string('why_choose_us_2_title_en')->nullable();
-            $table->string('why_choose_us_2_title_zh')->nullable();
-            $table->string('why_choose_us_2_title_ms')->nullable();
-            $table->text('why_choose_us_2_description_en')->nullable();
-            $table->text('why_choose_us_2_description_zh')->nullable();
-            $table->text('why_choose_us_2_description_ms')->nullable();
+            $table->text('feature_quality_ingredients_desc_en')->nullable();
+            $table->text('feature_quality_ingredients_desc_zh')->nullable();
+            $table->text('feature_quality_ingredients_desc_ms')->nullable();
 
-            // Block 3
-            $table->string('why_choose_us_3_icon')->nullable();
-            $table->string('why_choose_us_3_title_en')->nullable();
-            $table->string('why_choose_us_3_title_zh')->nullable();
-            $table->string('why_choose_us_3_title_ms')->nullable();
-            $table->text('why_choose_us_3_description_en')->nullable();
-            $table->text('why_choose_us_3_description_zh')->nullable();
-            $table->text('why_choose_us_3_description_ms')->nullable();
+            $table->string('feature_quality_guarantee_title_en')->nullable();
+            $table->string('feature_quality_guarantee_title_zh')->nullable();
+            $table->string('feature_quality_guarantee_title_ms')->nullable();
+
+            $table->text('feature_quality_guarantee_desc_en')->nullable();
+            $table->text('feature_quality_guarantee_desc_zh')->nullable();
+            $table->text('feature_quality_guarantee_desc_ms')->nullable();
+
+            // order now button text
+            $table->string('order_now_button_text_en')->nullable();
+            $table->string('order_now_button_text_zh')->nullable();
+            $table->string('order_now_button_text_ms')->nullable();
+
+            // view menu button text
+            $table->string('view_menu_button_text_en')->nullable();
+            $table->string('view_menu_button_text_zh')->nullable();
+            $table->string('view_menu_button_text_ms')->nullable();
+
+            // Statistics Section
+            $table->string('stats_satisfied_customers_text_en')->nullable();
+            $table->string('stats_satisfied_customers_text_zh')->nullable();
+            $table->string('stats_satisfied_customers_text_ms')->nullable();
+
+            // Average Delivery Time
+            $table->string('stats_avg_delivery_time_text_en')->nullable();
+            $table->string('stats_avg_delivery_time_text_zh')->nullable();
+            $table->string('stats_avg_delivery_time_text_ms')->nullable();
+
+            // User Rating
+            $table->string('stats_user_rating_text_en')->nullable();
+            $table->string('stats_user_rating_text_zh')->nullable();
+            $table->string('stats_user_rating_text_ms')->nullable();
+
+            // All Day Service
+            $table->string('stats_all_day_service_text_en')->nullable();
+            $table->string('stats_all_day_service_text_zh')->nullable();
+            $table->string('stats_all_day_service_text_ms')->nullable();
+
+            // Popular Categories
+            $table->string('popular_categories_title_en')->nullable();
+            $table->string('popular_categories_title_zh')->nullable();
+            $table->string('popular_categories_title_ms')->nullable();
+
+            // Today Special
+            $table->string('today_special_title_en')->nullable();
+            $table->string('today_special_title_zh')->nullable();
+            $table->string('today_special_title_ms')->nullable();
+            $table->text('today_special_description_en')->nullable();
+            $table->text('today_special_description_zh')->nullable();
+            $table->text('today_special_description_ms')->nullable();
 
             // Business Hours
             $table->string('business_hours_title_en')->nullable();
@@ -84,6 +118,23 @@ class CreateHomeCmsTable extends Migration
             $table->string('delivery_title_zh')->nullable();
             $table->string('delivery_title_ms')->nullable();
             $table->string('delivery_location')->nullable();
+
+            // Footer Section
+            $table->string('footer_slogan_en')->nullable();
+            $table->string('footer_slogan_zh')->nullable();
+            $table->string('footer_slogan_ms')->nullable();
+            $table->string('footer_privacy_policy_text_en')->nullable();
+            $table->string('footer_privacy_policy_text_zh')->nullable();
+            $table->string('footer_privacy_policy_text_ms')->nullable();
+            $table->string('footer_terms_of_service_text_en')->nullable();
+            $table->string('footer_terms_of_service_text_zh')->nullable();
+            $table->string('footer_terms_of_service_text_ms')->nullable();
+            $table->string('footer_help_center_text_en')->nullable();
+            $table->string('footer_help_center_text_zh')->nullable();
+            $table->string('footer_help_center_text_ms')->nullable();
+            $table->string('footer_all_rights_reserved_text_en')->nullable();
+            $table->string('footer_all_rights_reserved_text_zh')->nullable();
+            $table->string('footer_all_rights_reserved_text_ms')->nullable();
 
             $table->timestamps();
         });

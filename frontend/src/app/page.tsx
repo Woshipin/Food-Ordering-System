@@ -12,14 +12,73 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { ClipLoader } from "react-spinners"
 import { useLogout } from "@/hooks/useLogout"
+import axios from "@/lib/axios"
+
+// [修改] 更新接口以完全匹配后端API返回的字段名（基于home_cms数据库）
+interface HomeData {
+  // Hero
+  hero_title: string;
+  hero_main_title: string;
+  hero_description: string;
+  order_now_button_text: string;
+  view_menu_button_text: string;
+  
+  // Stats
+  stats_satisfied_customers_text: string;
+  stats_avg_delivery_time_text: string;
+  stats_user_rating_text: string;
+  stats_all_day_service_text: string;
+
+  // Popular Categories & Today Special
+  popular_categories_title: string;
+  today_special_title: string;
+  today_special_description: string;
+
+  // Why Choose Us
+  why_choose_us_title: string;
+  feature_fast_delivery_title: string;
+  feature_fast_delivery_desc: string;
+  feature_quality_ingredients_title: string;
+  feature_quality_ingredients_desc: string;
+  feature_quality_guarantee_title: string;
+  feature_quality_guarantee_desc: string;
+
+  // Contact / Business Hours / Delivery
+  business_hours_title: string;
+  business_hours_description: string;
+  contact_title: string;
+  contact_number: string;
+  delivery_title: string;
+  delivery_location: string;
+
+  // Footer
+  footer_slogan: string;
+  footer_privacy_policy_text: string;
+  footer_terms_of_service_text: string;
+  footer_help_center_text: string;
+  footer_all_rights_reserved_text: string;
+}
 
 export default function HomePage() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { user } = useAuth()
   const { handleLogout, isLoggingOut } = useLogout()
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [itemStock, setItemStock] = useState<Record<number, number>>({})
+  const [homeData, setHomeData] = useState<HomeData | null>(null)
+
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        const response = await axios.get(`/cms/home?lang=${language}`)
+        setHomeData(response.data)
+      } catch (error) {
+        console.error("Error fetching home page data:", error)
+      }
+    }
+    fetchHomeData()
+  }, [language])
 
   useEffect(() => {
     const stock: Record<number, number> = {}
@@ -117,7 +176,7 @@ export default function HomePage() {
                 <ChefHat className="h-7 w-7 text-white" />
               </div>
               <h1 className="text-xl font-bold text-white truncate">
-                {t("heroTitle") || "Delicious Food"}
+                {homeData?.hero_title || t("heroTitle") || "Delicious Food"}
               </h1>
             </Link>
 
@@ -237,7 +296,7 @@ export default function HomePage() {
                 <div className="bg-white/20 backdrop-blur-sm p-2 rounded-xl border border-white/50 shadow-lg">
                   <ChefHat className="h-7 w-7 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-white">Delicious Food</h1>
+                <h1 className="text-xl font-bold text-white">{homeData?.hero_title || "Delicious Food"}</h1>
               </Link>
               <Button variant="ghost" size="icon" className="bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/50 rounded-xl h-10 w-10" onClick={() => setIsMobileMenuOpen(false)}>
                 <X className="h-5 w-5" />
@@ -299,22 +358,24 @@ export default function HomePage() {
           <div className="w-full max-w-none text-center">
             <div className="max-w-6xl mx-auto">
               <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6">
-                {t("heroTitle")}
-                <span className="text-orange-500 block">{t("heroSubtitle")}</span>
+                {/* [修改] 使用 hero_main_title 替代 hero_subtitle */}
+                <span className="text-orange-500 block">{homeData?.hero_main_title || t("heroSubtitle")}</span>
               </h2>
               <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-4xl mx-auto">
-                {t("heroDescription")}
+                {homeData?.hero_description || t("heroDescription")}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/menu">
                   <Button size="lg" className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                     <ShoppingCart className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
-                    {t("orderNow")}
+                    {/* [修改] 使用 order_now_button_text 替代 order_now_button */}
+                    {homeData?.order_now_button_text || t("orderNow")}
                   </Button>
                 </Link>
                 <Link href="/menu">
                   <Button size="lg" variant="outline" className="text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 bg-white/80 backdrop-blur-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                    {t("viewMenu")}
+                    {/* [修改] 使用 view_menu_button_text 替代 view_menu_button */}
+                    {homeData?.view_menu_button_text || t("viewMenu")}
                   </Button>
                 </Link>
               </div>
@@ -328,19 +389,23 @@ export default function HomePage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">1000+</div>
-                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{t("satisfiedCustomers")}</div>
+                {/* [修改] 使用 stats_satisfied_customers_text */}
+                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_satisfied_customers_text || t("satisfiedCustomers")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">30{t("minutes")}</div>
-                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{t("avgDelivery")}</div>
+                {/* [修改] 使用 stats_avg_delivery_time_text */}
+                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_avg_delivery_time_text || t("avgDelivery")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">4.8★</div>
-                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{t("userRating")}</div>
+                {/* [修改] 使用 stats_user_rating_text */}
+                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_user_rating_text || t("userRating")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">24/7</div>
-                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{t("allDayService")}</div>
+                {/* [修改] 使用 stats_all_day_service_text */}
+                <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_all_day_service_text || t("allDayService")}</div>
               </div>
             </div>
           </div>
@@ -349,7 +414,7 @@ export default function HomePage() {
         {/* Categories Section */}
         <section className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{t("popularCategories")}</h3>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{homeData?.popular_categories_title || t("popularCategories")}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
               {categories.map((category, index) => (
                 <Link href={`/menu?category=${index}`} key={index}>
@@ -370,8 +435,8 @@ export default function HomePage() {
         <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-gray-50 to-orange-50 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none bg-white rounded-2xl shadow-lg p-6 border border-orange-100">
             <div className="text-center mb-8 sm:mb-12">
-              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">{t("todaySpecial")}</h3>
-              <p className="text-gray-600 text-base sm:text-lg lg:text-xl max-w-3xl mx-auto">{t("todaySpecialDesc")}</p>
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">{homeData?.today_special_title || t("todaySpecial")}</h3>
+              <p className="text-gray-600 text-base sm:text-lg lg:text-xl max-w-3xl mx-auto">{homeData?.today_special_description || t("todaySpecialDesc")}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
               {featuredItems.map((item) => (
@@ -455,34 +520,34 @@ export default function HomePage() {
         {/* Features Section */}
         <section className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{t("whyChooseUs")}</h3>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{homeData?.why_choose_us_title || t("whyChooseUs")}</h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               <Card className="text-center p-6 sm:p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gradient-to-br from-white to-orange-50 border-2 border-orange-100 rounded-3xl">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                   <Truck className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{t("fastDelivery")}</h4>
-                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{t("fastDeliveryDesc")}</p>
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{homeData?.feature_fast_delivery_title || t("fastDelivery")}</h4>
+                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{homeData?.feature_fast_delivery_desc || t("fastDeliveryDesc")}</p>
               </Card>
               <Card className="text-center p-6 sm:p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gradient-to-br from-white to-orange-50 border-2 border-orange-100 rounded-3xl">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                   <ChefHat className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{t("qualityIngredients")}</h4>
-                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{t("qualityIngredientsDesc")}</p>
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{homeData?.feature_quality_ingredients_title || t("qualityIngredients")}</h4>
+                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{homeData?.feature_quality_ingredients_desc || t("qualityIngredientsDesc")}</p>
               </Card>
               <Card className="text-center p-6 sm:p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gradient-to-br from-white to-orange-50 border-2 border-orange-100 rounded-3xl sm:col-span-2 lg:col-span-1">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                   <Star className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{t("qualityGuarantee")}</h4>
-                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{t("qualityGuaranteeDesc")}</p>
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-4">{homeData?.feature_quality_guarantee_title || t("qualityGuarantee")}</h4>
+                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">{homeData?.feature_quality_guarantee_desc || t("qualityGuaranteeDesc")}</p>
               </Card>
             </div>
           </div>
         </section>
 
-        {/* ===== CONTACT INFO SECTION: UPDATED STYLES ===== */}
+        {/* ===== CONTACT INFO SECTION: UPDATED FIELDS ===== */}
         <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-gray-900 to-black text-white px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 text-center">
@@ -491,22 +556,28 @@ export default function HomePage() {
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{t("businessHours")}</h4>
-                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{t("mondayToSunday")}</p>
+                {/* [修改] 使用 business_hours_title */}
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.business_hours_title || t("businessHours")}</h4>
+                {/* [修改] 使用 business_hours_description */}
+                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.business_hours_description || t("mondayToSunday")}</p>
               </div>
               <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white shadow-lg">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <Phone className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{t("orderHotline")}</h4>
-                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">400-123-4567</p>
+                {/* [修改] 使用 contact_title */}
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.contact_title || t("orderHotline")}</h4>
+                {/* [修改] 使用 contact_number */}
+                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.contact_number || "400-123-4567"}</p>
               </div>
               <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white shadow-lg sm:col-span-2 lg:col-span-1">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{t("deliveryRange")}</h4>
-                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{t("freeDeliveryRange")}</p>
+                {/* [修改] 使用 delivery_title */}
+                <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.delivery_title || t("deliveryRange")}</h4>
+                {/* [修改] 使用 delivery_location */}
+                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.delivery_location || t("freeDeliveryRange")}</p>
               </div>
             </div>
           </div>
@@ -519,22 +590,26 @@ export default function HomePage() {
               <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-xl shadow-lg">
                 <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
-              <span className="text-xl sm:text-2xl lg:text-3xl font-bold">{t("heroTitle")}</span>
+              <span className="text-xl sm:text-2xl lg:text-3xl font-bold">{homeData?.hero_title || t("heroTitle")}</span>
             </Link>
-            <p className="text-gray-400 mb-6 text-base sm:text-lg lg:text-xl max-w-2xl mx-auto">{t("footerSlogan")}</p>
+            <p className="text-gray-400 mb-6 text-base sm:text-lg lg:text-xl max-w-2xl mx-auto">{homeData?.footer_slogan || t("footerSlogan")}</p>
             <div className="flex justify-center space-x-6 sm:space-x-8 text-sm sm:text-base text-gray-400 mb-6">
               <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {t("privacyPolicy")}
+                {/* [修改] 使用 footer_privacy_policy_text */}
+                {homeData?.footer_privacy_policy_text || t("privacyPolicy")}
               </Link>
               <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {t("termsOfService")}
+                {/* [修改] 使用 footer_terms_of_service_text */}
+                {homeData?.footer_terms_of_service_text || t("termsOfService")}
               </Link>
               <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {t("helpCenter")}
+                {/* [修改] 使用 footer_help_center_text */}
+                {homeData?.footer_help_center_text || t("helpCenter")}
               </Link>
             </div>
             <div className="pt-6 border-t border-gray-700 text-sm sm:text-base text-gray-400">
-              © 2024 {t("heroTitle")}. {t("allRightsReserved")}.
+              {/* [修改] 使用 footer_all_rights_reserved_text */}
+              © 2024 {homeData?.hero_title || t("heroTitle")}. {homeData?.footer_all_rights_reserved_text || t("allRightsReserved")}.
             </div>
           </div>
         </footer>

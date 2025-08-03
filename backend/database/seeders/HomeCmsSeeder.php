@@ -7,8 +7,14 @@ use App\Models\HomeCms;
 
 class HomeCmsSeeder extends Seeder
 {
+    /**
+     * Run the database seeds.
+     */
     public function run(): void
     {
+        // 因为是单例模式，先清空表以防重复创建
+        HomeCms::truncate();
+
         HomeCms::create([
             // Hero Section
             'hero_title_en' => 'Delicious Food',
@@ -22,41 +28,62 @@ class HomeCmsSeeder extends Seeder
             'hero_description_ms' => 'Hidangan segar dan panas ke pintu anda.',
             'hero_background_image' => 'images/home/hero.jpg',
 
-            // Story
-            'story_title_en' => 'Our Story',
-            'story_title_zh' => '我们的故事',
-            'story_title_ms' => 'Kisah Kami',
-            'story_description_en' => 'Started with passion for food...',
-            'story_description_zh' => '始于对美食的热情...',
-            'story_description_ms' => 'Bermula dengan semangat terhadap makanan...',
-            'story_image' => 'images/home/story.jpg',
+            'order_now_button_text_en' => 'Order Now',
+            'order_now_button_text_zh' => '立即订购',
+            'order_now_button_text_ms' => 'Pesan Sekarang',
+            'view_menu_button_text_en' => 'View Menu',
+            'view_menu_button_text_zh' => '查看菜单',
+            'view_menu_button_text_ms' => 'Lihat Menu',
 
-            // Why Choose Us 1
-            'why_choose_us_1_icon' => 'fa fa-truck',
-            'why_choose_us_1_title_en' => 'Fast Delivery',
-            'why_choose_us_1_title_zh' => '快速配送',
-            'why_choose_us_1_title_ms' => 'Penghantaran Pantas',
-            'why_choose_us_1_description_en' => 'Get your food within 30 minutes.',
-            'why_choose_us_1_description_zh' => '30分钟内送达。',
-            'why_choose_us_1_description_ms' => 'Makanan sampai dalam masa 30 minit.',
+            // Stats
+            'stats_satisfied_customers_text_en' => 'Satisfied Customers',
+            'stats_satisfied_customers_text_zh' => '满意客户',
+            'stats_satisfied_customers_text_ms' => 'Pelanggan Berpuas Hati',
+            'stats_avg_delivery_time_text_en' => 'Avg. Delivery Time',
+            'stats_avg_delivery_time_text_zh' => '平均配送时间',
+            'stats_avg_delivery_time_text_ms' => 'Masa Penghantaran Purata',
+            'stats_user_rating_text_en' => 'User Rating',
+            'stats_user_rating_text_zh' => '用户评分',
+            'stats_user_rating_text_ms' => 'Penilaian Pengguna',
+            'stats_all_day_service_text_en' => 'All Day Service',
+            'stats_all_day_service_text_zh' => '全天服务',
+            'stats_all_day_service_text_ms' => 'Perkhidmatan Sepanjang Hari',
 
-            // Why Choose Us 2
-            'why_choose_us_2_icon' => 'fa fa-star',
-            'why_choose_us_2_title_en' => 'Top Quality',
-            'why_choose_us_2_title_zh' => '顶级品质',
-            'why_choose_us_2_title_ms' => 'Kualiti Terbaik',
-            'why_choose_us_2_description_en' => 'Only the best ingredients.',
-            'why_choose_us_2_description_zh' => '只选用最好的食材。',
-            'why_choose_us_2_description_ms' => 'Hanya bahan terbaik digunakan.',
+            // Popular Categories
+            'popular_categories_title_en' => 'Popular Categories',
+            'popular_categories_title_zh' => '热门分类',
+            'popular_categories_title_ms' => 'Kategori Popular',
 
-            // Why Choose Us 3
-            'why_choose_us_3_icon' => 'fa fa-thumbs-up',
-            'why_choose_us_3_title_en' => 'Customer Satisfaction',
-            'why_choose_us_3_title_zh' => '顾客满意',
-            'why_choose_us_3_title_ms' => 'Kepuasan Pelanggan',
-            'why_choose_us_3_description_en' => 'We prioritize our customers.',
-            'why_choose_us_3_description_zh' => '我们以顾客为先。',
-            'why_choose_us_3_description_ms' => 'Kami mengutamakan pelanggan.',
+            // Today Special
+            'today_special_title_en' => "Today's Special",
+            'today_special_title_zh' => '今日特价',
+            'today_special_title_ms' => 'Istimewa Hari Ini',
+            'today_special_description_en' => 'Check out our special dish for today!',
+            'today_special_description_zh' => '查看我们今天的特价菜！',
+            'today_special_description_ms' => 'Lihat hidangan istimewa kami untuk hari ini!',
+
+            // Why Choose Us
+            'why_choose_us_title_en' => 'Why Choose Us',
+            'why_choose_us_title_zh' => '为什么选择我们',
+            'why_choose_us_title_ms' => 'Kenapa Pilih Kami',
+            'feature_fast_delivery_title_en' => 'Fast Delivery',
+            'feature_fast_delivery_title_zh' => '快速配送',
+            'feature_fast_delivery_title_ms' => 'Penghantaran Pantas',
+            'feature_fast_delivery_desc_en' => 'Get your food delivered in no time.',
+            'feature_fast_delivery_desc_zh' => '您的食物将立即送达。',
+            'feature_fast_delivery_desc_ms' => 'Dapatkan makanan anda dihantar dalam masa yang singkat.',
+            'feature_quality_ingredients_title_en' => 'Quality Ingredients',
+            'feature_quality_ingredients_title_zh' => '优质食材',
+            'feature_quality_ingredients_title_ms' => 'Bahan Berkualiti',
+            'feature_quality_ingredients_desc_en' => 'We use only the freshest ingredients.',
+            'feature_quality_ingredients_desc_zh' => '我们只使用最新鲜的食材。',
+            'feature_quality_ingredients_desc_ms' => 'Kami hanya menggunakan bahan-bahan yang paling segar.',
+            'feature_quality_guarantee_title_en' => 'Quality Guarantee',
+            'feature_quality_guarantee_title_zh' => '品质保证',
+            'feature_quality_guarantee_title_ms' => 'Jaminan Kualiti',
+            'feature_quality_guarantee_desc_en' => 'We guarantee the quality of our food.',
+            'feature_quality_guarantee_desc_zh' => '我们保证食物的品质。',
+            'feature_quality_guarantee_desc_ms' => 'Kami menjamin kualiti makanan kami.',
 
             // Business Hours
             'business_hours_title_en' => 'Business Hours',
@@ -77,6 +104,23 @@ class HomeCmsSeeder extends Seeder
             'delivery_title_zh' => '配送范围',
             'delivery_title_ms' => 'Kawasan Penghantaran',
             'delivery_location' => 'Johor Bahru, Malaysia',
+
+            // Footer
+            'footer_slogan_en' => 'Your favorite food, delivered.',
+            'footer_slogan_zh' => '您最喜爱的食物，送到您家。',
+            'footer_slogan_ms' => 'Makanan kegemaran anda, dihantar.',
+            'footer_privacy_policy_text_en' => 'Privacy Policy',
+            'footer_privacy_policy_text_zh' => '隐私政策',
+            'footer_privacy_policy_text_ms' => 'Dasar Privasi',
+            'footer_terms_of_service_text_en' => 'Terms of Service',
+            'footer_terms_of_service_text_zh' => '服务条款',
+            'footer_terms_of_service_text_ms' => 'Syarat Perkhidmatan',
+            'footer_help_center_text_en' => 'Help Center',
+            'footer_help_center_text_zh' => '帮助中心',
+            'footer_help_center_text_ms' => 'Pusat Bantuan',
+            'footer_all_rights_reserved_text_en' => 'All rights reserved.',
+            'footer_all_rights_reserved_text_zh' => '版权所有。',
+            'footer_all_rights_reserved_text_ms' => 'Hak cipta terpelihara.',
         ]);
     }
 }
