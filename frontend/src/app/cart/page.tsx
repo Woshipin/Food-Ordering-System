@@ -101,6 +101,16 @@ interface PaymentMethod {
     icon_name: string;
 }
 
+interface Address {
+    id: number;
+    name: string;
+    phone: string;
+    address: string;
+    building?: string;
+    floor?: string;
+    is_default: boolean;
+}
+
 const Icon = ({ name, ...props }: { name: string } & LucideIcons.LucideProps) => {
     const LucideIcon = LucideIcons[name as keyof typeof LucideIcons] as React.ComponentType<LucideIcons.LucideProps>;
     if (!LucideIcon) {
@@ -136,9 +146,10 @@ export default function CartPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
   const [serviceType, setServiceType] = useState<string>("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState<number | null>(null);
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [addresses, setAddresses] = useState<Address[]>([]);
 
   const [paymentMethod, setPaymentMethod] = useState<string>("");
 
@@ -153,9 +164,10 @@ export default function CartPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [cartResponse, optionsResponse] = await Promise.all([
+        const [cartResponse, optionsResponse, addressResponse] = await Promise.all([
             axios.get("/cart"),
-            axios.get("/checkout-options")
+            axios.get("/checkout-options"),
+            axios.get("/address")
         ]);
 
         setCartData(cartResponse.data.cart);
@@ -169,6 +181,14 @@ export default function CartPage() {
         }
         if (optionsData.payment_methods.length > 0) {
             setPaymentMethod(optionsData.payment_methods[0].name);
+        }
+
+        setAddresses(addressResponse.data);
+        const defaultAddress = addressResponse.data.find((addr: Address) => addr.is_default);
+        if (defaultAddress) {
+            setDeliveryAddress(defaultAddress.id);
+        } else if (addressResponse.data.length > 0) {
+            setDeliveryAddress(addressResponse.data[0].id);
         }
 
       } catch (err: any) {
@@ -495,18 +515,6 @@ export default function CartPage() {
           ))}
         </RadioGroup>
 
-        {serviceType === 'delivery' && (
-          <div className="mt-8 space-y-4">
-            <Label htmlFor="address" className="text-base font-semibold">Delivery Address</Label>
-            <Textarea
-              id="address"
-              placeholder="Enter your complete delivery address..."
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              className="min-h-20 rounded-xl border-gray-300 focus:border-orange-500"
-            />
-          </div>
-        )}
 
         {serviceType === 'pickup' && (
           <div className="mt-8 space-y-4">
@@ -607,7 +615,9 @@ export default function CartPage() {
                     {serviceType === 'delivery' && deliveryAddress && (
                         <div className="flex justify-between items-start gap-4">
                             <span className="text-gray-600 flex-shrink-0">Address:</span>
-                            <span className="font-medium text-right">{deliveryAddress}</span>
+                            <span className="font-medium text-right">
+                                {addresses.find(a => a.id === deliveryAddress)?.address}
+                            </span>
                         </div>
                     )}
                     {serviceType === 'pickup' && pickupTime && (
@@ -681,7 +691,52 @@ export default function CartPage() {
       case 1:
         return <CartItems />;
       case 2:
-        return <ServiceSelection />;
+        return (
+          <div className="space-y-8">
+            <ServiceSelection />
+            {serviceType === 'delivery' && (
+              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <Icon name="MapPin" className="mr-3 h-6 w-6" />
+                    Delivery Address
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 md:p-8">
+                  <RadioGroup
+                    value={deliveryAddress?.toString()}
+                    onValueChange={(value) => setDeliveryAddress(Number(value))}
+                    className="space-y-4"
+                  >
+                    {addresses.map((addr) => (
+                      <Label
+                        key={addr.id}
+                        htmlFor={`address-${addr.id}`}
+                        className={`flex items-start space-x-4 p-4 rounded-xl border-2 cursor-pointer transition-all bg-white shadow-sm ${
+                          deliveryAddress === addr.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <RadioGroupItem value={addr.id.toString()} id={`address-${addr.id}`} className="mt-1" />
+                        <div className="flex-1">
+                          <div className="font-semibold flex items-center">
+                            {addr.name}
+                            {addr.is_default && (
+                              <Badge className="ml-2 bg-green-100 text-green-800">Default</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{addr.phone}</p>
+                          <p className="text-sm text-gray-600">
+                            {addr.address}, {addr.building}, {addr.floor}
+                          </p>
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
       case 3:
         return <PaymentSelection />;
       case 4:
