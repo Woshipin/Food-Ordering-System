@@ -58,10 +58,12 @@ class ContactCmsSeeder extends Seeder
         // 3. Address
         ContactInfo::create([
             'type' => 'address',
-            'label_en' => 'Address',
-            'label_zh' => '地址',
-            'label_ms' => 'Alamat',
-            'value' => 'PTD 64888, Jalan Selatan Utama, KM 15, Off, Skudai Lbh, 81300 Skudai, Johor Darul Tazim, Malaysia',
+            'label_en' => 'Mid Valley Southkey',
+            'label_zh' => 'Mid Valley Southkey',
+            'label_ms' => 'Mid Valley Southkey',
+            'value' => '1, Persiaran Southkey 1, Southkey, 80150 Johor Bahru, Johor Darul Tazim',
+            'longitude' => '103.77657650',
+            'latitude' => '1.50235030',
             'note_en' => 'Headquarters',
             'note_zh' => '总部地址',
             'note_ms' => 'Ibu Pejabat',

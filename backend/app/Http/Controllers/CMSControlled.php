@@ -138,6 +138,53 @@ class CMSControlled extends Controller
         return response()->json($data);
     }
 
+    // public function contactCms(Request $request)
+    // {
+    //     $lang = $request->query('lang', 'en');
+    //     $contactCms = ContactCms::first();
+
+    //     if (!$contactCms) {
+    //         return response()->json(['error' => 'Contact CMS not found'], 404);
+    //     }
+
+    //     $data = [
+    //         'hero_title' => $this->getTranslatedField($contactCms, 'contact_title', $lang),
+    //         'hero_description' => $this->getTranslatedField($contactCms, 'contact_description', $lang),
+    //         'contact_info_title' => 'Contact Information', // Hardcoded as it's not in the model
+    //         'contact_info' => ContactInfo::all()->map(function ($item) use ($lang) {
+    //             return [
+    //                 'type' => $item->type,
+    //                 'title' => $this->getTranslatedField($item, 'label', $lang),
+    //                 'description' => $this->getTranslatedField($item, 'note', $lang),
+    //                 'details' => $item->value,
+    //             ];
+    //         }),
+    //         'store_location_title' => 'Our Location', // Hardcoded as it's not in the model
+    //         'map_url' => ContactMap::first()->map_iframe_url,
+    //         'send_message_title' => 'Send us a Message', // Hardcoded as it's not in the model
+    //         'form_name_label' => 'Full Name', // Hardcoded as it's not in the model
+    //         'form_name_placeholder' => 'Enter your full name', // Hardcoded as it's not in the model
+    //         'form_phone_label' => 'Phone Number', // Hardcoded as it's not in the model
+    //         'form_phone_placeholder' => 'Enter your phone number', // Hardcoded as it's not in the model
+    //         'form_email_label' => 'Email Address', // Hardcoded as it's not in the model
+    //         'form_email_placeholder' => 'Enter your email address', // Hardcoded as it's not in the model
+    //         'form_subject_label' => 'Subject', // Hardcoded as it's not in the model
+    //         'form_subject_placeholder' => 'Enter the subject of your message', // Hardcoded as it's not in the model
+    //         'form_message_label' => 'Message', // Hardcoded as it's not in the model
+    //         'form_message_placeholder' => 'Enter your message', // Hardcoded as it's not in the model
+    //         'form_submit_button' => 'Send Message', // Hardcoded as it's not in the model
+    //         'faq_title' => 'Frequently Asked Questions', // Hardcoded as it's not in the model
+    //         'faqs' => ContactFaq::all()->map(function ($item) use ($lang) {
+    //             return [
+    //                 'question' => $this->getTranslatedField($item, 'question', $lang),
+    //                 'answer' => $this->getTranslatedField($item, 'answer', $lang),
+    //             ];
+    //         }),
+    //     ];
+
+    //     return response()->json($data);
+    // }
+
     public function contactCms(Request $request)
     {
         $lang = $request->query('lang', 'en');
@@ -146,6 +193,11 @@ class CMSControlled extends Controller
         if (!$contactCms) {
             return response()->json(['error' => 'Contact CMS not found'], 404);
         }
+
+        // --- MODIFIED START ---
+        // Find the primary address to get the store's coordinates
+        $addressInfo = ContactInfo::where('type', 'address')->first();
+        // --- MODIFIED END ---
 
         $data = [
             'hero_title' => $this->getTranslatedField($contactCms, 'contact_title', $lang),
@@ -157,23 +209,35 @@ class CMSControlled extends Controller
                     'title' => $this->getTranslatedField($item, 'label', $lang),
                     'description' => $this->getTranslatedField($item, 'note', $lang),
                     'details' => $item->value,
+                    // NEW: Also pass coordinates for each address item
+                    'latitude' => $item->latitude,
+                    'longitude' => $item->longitude,
                 ];
             }),
-            'store_location_title' => 'Our Location', // Hardcoded as it's not in the model
-            'map_url' => ContactMap::first()->map_iframe_url,
-            'send_message_title' => 'Send us a Message', // Hardcoded as it's not in the model
-            'form_name_label' => 'Full Name', // Hardcoded as it's not in the model
-            'form_name_placeholder' => 'Enter your full name', // Hardcoded as it's not in the model
-            'form_phone_label' => 'Phone Number', // Hardcoded as it's not in the model
-            'form_phone_placeholder' => 'Enter your phone number', // Hardcoded as it's not in the model
-            'form_email_label' => 'Email Address', // Hardcoded as it's not in the model
-            'form_email_placeholder' => 'Enter your email address', // Hardcoded as it's not in the model
-            'form_subject_label' => 'Subject', // Hardcoded as it's not in the model
-            'form_subject_placeholder' => 'Enter the subject of your message', // Hardcoded as it's not in the model
-            'form_message_label' => 'Message', // Hardcoded as it's not in the model
-            'form_message_placeholder' => 'Enter your message', // Hardcoded as it's not in the model
-            'form_submit_button' => 'Send Message', // Hardcoded as it's not in the model
-            'faq_title' => 'Frequently Asked Questions', // Hardcoded as it's not in the model
+            'store_location_title' => 'Our Location', // Hardcoded
+
+            // --- MODIFIED START ---
+            // Group store location data together for easier access on the frontend
+            'store_location' => [
+                'latitude' => $addressInfo ? (float)$addressInfo->latitude : null,
+                'longitude' => $addressInfo ? (float)$addressInfo->longitude : null,
+                'map_url' => ContactMap::first()?->map_iframe_url,
+            ],
+            // --- MODIFIED END ---
+
+            'send_message_title' => 'Send us a Message', // Hardcoded
+            'form_name_label' => 'Full Name', // Hardcoded
+            'form_name_placeholder' => 'Enter your full name', // Hardcoded
+            'form_phone_label' => 'Phone Number', // Hardcoded
+            'form_phone_placeholder' => 'Enter your phone number', // Hardcoded
+            'form_email_label' => 'Email Address', // Hardcoded
+            'form_email_placeholder' => 'Enter your email address', // Hardcoded
+            'form_subject_label' => 'Subject', // Hardcoded
+            'form_subject_placeholder' => 'Enter the subject of your message', // Hardcoded
+            'form_message_label' => 'Message', // Hardcoded
+            'form_message_placeholder' => 'Enter your message', // Hardcoded
+            'form_submit_button' => 'Send Message', // Hardcoded
+            'faq_title' => 'Frequently Asked Questions', // Hardcoded
             'faqs' => ContactFaq::all()->map(function ($item) use ($lang) {
                 return [
                     'question' => $this->getTranslatedField($item, 'question', $lang),

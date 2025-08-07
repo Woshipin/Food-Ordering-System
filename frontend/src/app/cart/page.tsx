@@ -90,7 +90,7 @@ interface ServiceMethod {
     display_name: string;
     description: string;
     details: string;
-    fee: number | string; // 允许 fee 是字符串或数字
+    fee: number | string;
     icon_name: string;
 }
 
@@ -109,7 +109,22 @@ interface Address {
     building?: string;
     floor?: string;
     is_default: boolean;
+    latitude: number;
+    longitude: number;
 }
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+};
 
 const Icon = ({ name, ...props }: { name: string } & LucideIcons.LucideProps) => {
     const LucideIcon = LucideIcons[name as keyof typeof LucideIcons] as React.ComponentType<LucideIcons.LucideProps>;
@@ -133,7 +148,7 @@ const getFullImageUrl = (imagePath: string | null | undefined): string => {
 };
 
 export default function CartPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const { isAuthenticated, isLoading: authIsLoading } = useAuth();
 
@@ -144,30 +159,31 @@ export default function CartPage() {
 
   const [serviceMethods, setServiceMethods] = useState<ServiceMethod[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  
+  const [storeLocation, setStoreLocation] = useState<{ latitude: number; longitude: number; } | null>(null);
 
   const [serviceType, setServiceType] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<number | null>(null);
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [addresses, setAddresses] = useState<Address[]>([]);
-
   const [paymentMethod, setPaymentMethod] = useState<string>("");
 
   const [promoCode, setPromoCode] = useState("");
   const discount = promoCode === "SAVE10" ? 0.1 : 0;
   
-  // 【修正】使用 Number() 强制将 fee 转换为数字
-  const deliveryFee = Number(serviceMethods.find(s => s.name === serviceType)?.fee || 0);
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [cartResponse, optionsResponse, addressResponse] = await Promise.all([
+        const [cartResponse, optionsResponse, addressResponse, contactCmsResponse] = await Promise.all([
             axios.get("/cart"),
             axios.get("/checkout-options"),
-            axios.get("/address")
+            axios.get("/address"),
+            axios.get(`/cms/contact?lang=${language}`)
         ]);
 
         setCartData(cartResponse.data.cart);
@@ -181,6 +197,10 @@ export default function CartPage() {
         }
         if (optionsData.payment_methods.length > 0) {
             setPaymentMethod(optionsData.payment_methods[0].name);
+        }
+
+        if(contactCmsResponse.data.store_location) {
+            setStoreLocation(contactCmsResponse.data.store_location);
         }
 
         setAddresses(addressResponse.data);
@@ -207,8 +227,63 @@ export default function CartPage() {
         router.push("/auth/login");
       }
     }
-  }, [authIsLoading, isAuthenticated, router]);
+  }, [authIsLoading, isAuthenticated, router, language]);
   
+  useEffect(() => {
+    if (serviceType === 'delivery' && deliveryAddress && storeLocation && addresses.length > 0) {
+      const selectedAddress = addresses.find(addr => addr.id === deliveryAddress);
+      
+      console.groupCollapsed("--- Delivery Fee Calculation ---");
+
+      if (selectedAddress && selectedAddress.latitude && selectedAddress.longitude && storeLocation.latitude && storeLocation.longitude) {
+        
+        console.log("SYSTEM (Store) Address Coords:", {
+          latitude: storeLocation.latitude,
+          longitude: storeLocation.longitude
+        });
+        console.log("USER Selected Address Coords:", {
+          latitude: selectedAddress.latitude,
+          longitude: selectedAddress.longitude
+        });
+
+        const distance = calculateDistance(
+          storeLocation.latitude,
+          storeLocation.longitude,
+          selectedAddress.latitude,
+          selectedAddress.longitude
+        );
+        console.log(`Calculated Distance: ${distance.toFixed(2)} km`);
+
+        // --- Your Custom Delivery Fee Calculation Logic ---
+        const BASE_FEE = 3.00;
+        const PER_KM_RATE = 0.80;
+        const FREE_DELIVERY_DISTANCE_KM = 2;
+        const MAX_FEE = 20.00;
+        let finalFee = 0;
+
+        if (distance <= FREE_DELIVERY_DISTANCE_KM) {
+            finalFee = 0; // Free delivery
+        } else {
+            const calculatedFee = BASE_FEE + (distance * PER_KM_RATE);
+            finalFee = Math.min(calculatedFee, MAX_FEE);
+        }
+        
+        console.log(`FINAL DELIVERY FEE: RM ${finalFee.toFixed(2)}`);
+        setDeliveryFee(finalFee);
+
+      } else {
+        console.warn("Fallback fee calculation triggered. Check for missing coordinates.");
+        const staticFee = Number(serviceMethods.find(s => s.name === 'delivery')?.fee || 5.00);
+        setDeliveryFee(staticFee);
+        console.log(`Using fallback fee: RM ${staticFee.toFixed(2)}`);
+      }
+      console.groupEnd();
+
+    } else {
+      setDeliveryFee(0);
+    }
+  }, [serviceType, deliveryAddress, storeLocation, addresses, serviceMethods]);
+
   const handleUpdateMenuQuantity = (menuId: number, newQuantity: number) => {
     setCartData(prevCart => {
       if (!prevCart) return null;
@@ -504,11 +579,20 @@ export default function CartPage() {
                 <div>
                   <div className="text-lg font-semibold">{method.display_name}</div>
                   <p className="text-sm text-gray-600">{method.description}</p>
-                  {method.details && (
-                    <p className={`text-sm font-medium ${Number(method.fee) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                      {method.details}
-                    </p>
+                  
+                  {/* MODIFIED: Dynamically show the delivery fee or other details */}
+                  {serviceType === 'delivery' && method.name === 'delivery' ? (
+                      <p className="text-sm font-medium text-blue-600">
+                          {deliveryFee > 0 ? `Fee: RM ${deliveryFee.toFixed(2)}` : 'Free Delivery'}
+                      </p>
+                  ) : (
+                    method.details && (
+                      <p className={`text-sm font-medium text-green-600`}>
+                        {method.details}
+                      </p>
+                    )
                   )}
+
                 </div>
               </div>
             </Label>
@@ -828,7 +912,9 @@ export default function CartPage() {
                     <div className="flex justify-between text-gray-600">
                       <span>Delivery Fee</span>
                       <span className="font-medium">
-                        {deliveryFee === 0 ? (
+                        {serviceType !== 'delivery' ? (
+                          <span className="text-gray-500">N/A</span>
+                        ) : deliveryFee === 0 ? (
                           <span className="text-green-600">Free</span>
                         ) : (
                           `RM${deliveryFee.toFixed(2)}`

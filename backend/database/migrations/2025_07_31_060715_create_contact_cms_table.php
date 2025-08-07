@@ -30,10 +30,10 @@ return new class extends Migration
             $table->string('label_ms')->nullable();
             $table->string('value')->nullable();
             // after('value') 表示将此字段放在 'value' 字段之后，方便在数据库中查看
-            $table->decimal('latitude', 10, 8)->nullable()->after('value');
+            $table->decimal('latitude', 10, 6)->nullable()->after('value');
             // 添加 'longitude' 字段
             // (11, 8) 表示总共11位数（经度范围可达-180到+180），其中8位是小数
-            $table->decimal('longitude', 11, 8)->nullable()->after('latitude');
+            $table->decimal('longitude', 11, 6)->nullable()->after('latitude');
             $table->string('note_en')->nullable();
             $table->string('note_zh')->nullable();
             $table->string('note_ms')->nullable();
