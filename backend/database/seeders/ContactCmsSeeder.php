@@ -31,6 +31,7 @@ class ContactCmsSeeder extends Seeder
             'answer_ms' => 'Anda boleh emel kami di support@example.com.',
         ]);
 
+        // 1. Phone
         ContactInfo::create([
             'type' => 'phone',
             'label_en' => 'Phone',
@@ -42,16 +43,44 @@ class ContactCmsSeeder extends Seeder
             'note_ms' => 'Hanya waktu bekerja',
         ]);
 
+        // 2. Email
         ContactInfo::create([
             'type' => 'email',
             'label_en' => 'Email',
             'label_zh' => '电子邮件',
             'label_ms' => 'Emel',
             'value' => 'info@example.com',
+            'note_en' => 'Feel free to email us',
+            'note_zh' => '欢迎发送邮件给我们',
+            'note_ms' => 'Sila emel kepada kami',
+        ]);
+
+        // 3. Address
+        ContactInfo::create([
+            'type' => 'address',
+            'label_en' => 'Address',
+            'label_zh' => '地址',
+            'label_ms' => 'Alamat',
+            'value' => 'PTD 64888, Jalan Selatan Utama, KM 15, Off, Skudai Lbh, 81300 Skudai, Johor Darul Tazim, Malaysia',
+            'note_en' => 'Headquarters',
+            'note_zh' => '总部地址',
+            'note_ms' => 'Ibu Pejabat',
+        ]);
+
+        // 4. Hours
+        ContactInfo::create([
+            'type' => 'hours',
+            'label_en' => 'Business Hours',
+            'label_zh' => '营业时间',
+            'label_ms' => 'Waktu Operasi',
+            'value' => 'Mon - Fri, 9:00 AM - 6:00 PM',
+            'note_en' => 'Closed on public holidays',
+            'note_zh' => '公共假期不营业',
+            'note_ms' => 'Tutup pada cuti umum',
         ]);
 
         ContactMap::create([
-            'map_iframe_url' => '<iframe src="https://maps.google.com/?q=Johor+Bahru" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>',
+            'map_iframe_url' => '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.389126124463!2d103.67928727472494!3d1.5336266984520133!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da73c109632e0b%3A0x74cda51bf210c304!2z5Y2X5pa55aSn5a2m5a2m6Zmi!5e0!3m2!1szh-CN!2smy!4v1754545943329!5m2!1szh-CN!2smy" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>',
         ]);
     }
 }
