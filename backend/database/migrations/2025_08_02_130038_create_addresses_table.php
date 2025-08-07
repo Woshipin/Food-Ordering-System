@@ -21,6 +21,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('phone');
             $table->string('address');
+            $table->decimal('latitude', 10, 7)->nullable()->after('address');
+            $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
             $table->string('building')->nullable();
             $table->string('floor')->nullable();
             $table->boolean('is_default')->default(false);

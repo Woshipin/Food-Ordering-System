@@ -18,6 +18,8 @@ class Address extends Model
         'building',
         'floor',
         'is_default',
+        'latitude',
+        'longitude',
     ];
 
     protected $casts = [

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { MapPin, Clock, CreditCard, Smartphone, Wallet, CheckCircle, ArrowLeft } from "lucide-react"
 import { useLanguage } from "../../components/LanguageProvider"
@@ -13,9 +13,25 @@ import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { Textarea } from "../../components/ui/textarea"
 import { Separator } from "../../components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { useAuth } from "@/context/AuthContext"
+import axios from "@/lib/axios"
+
+interface Address {
+  id: number;
+  name: string;
+  phone: string;
+  address: string;
+  building: string;
+  floor: string;
+  is_default: boolean;
+}
 
 export default function CheckoutPage() {
   const { t } = useLanguage()
+  const { user } = useAuth();
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: "",
     phone: "",
@@ -35,8 +51,56 @@ export default function CheckoutPage() {
   ]
 
   const subtotal = 112.0
-  const deliveryFee = 0
-  const total = 112.0
+  const total = deliveryFee !== null ? subtotal + deliveryFee : subtotal;
+
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      if (user) {
+        try {
+          const response = await axios.get('/address');
+          setAddresses(response.data);
+          const defaultAddress = response.data.find((addr: Address) => addr.is_default);
+          if (defaultAddress) {
+            setSelectedAddress(defaultAddress);
+          }
+        } catch (error) {
+          console.error("Failed to fetch addresses", error);
+        }
+      }
+    };
+    fetchAddresses();
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedAddress) {
+      setDeliveryInfo({
+        name: selectedAddress.name,
+        phone: selectedAddress.phone,
+        address: selectedAddress.address,
+        building: selectedAddress.building || "",
+        floor: selectedAddress.floor || "",
+        notes: "",
+      });
+      calculateDeliveryFee(selectedAddress.id);
+    }
+  }, [selectedAddress]);
+
+  const calculateDeliveryFee = async (addressId: number) => {
+    try {
+      const response = await axios.post('/delivery-fee', { address_id: addressId });
+      setDeliveryFee(response.data.delivery_fee);
+    } catch (error) {
+      console.error("Failed to calculate delivery fee", error);
+      setDeliveryFee(null);
+    }
+  };
+
+  const handleAddressChange = (addressId: string) => {
+    const address = addresses.find(addr => addr.id === parseInt(addressId, 10));
+    if (address) {
+      setSelectedAddress(address);
+    }
+  };
 
   const timeSlots = [
     { value: "asap", label: "尽快送达 (30-45分钟)" },
@@ -79,65 +143,57 @@ export default function CheckoutPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">{t("recipientName")} *</Label>
-                    <Input
-                      id="name"
-                      value={deliveryInfo.name}
-                      onChange={(e) => setDeliveryInfo({ ...deliveryInfo, name: e.target.value })}
-                      placeholder={t("enterName")}
-                    />
+                <Select onValueChange={handleAddressChange} value={selectedAddress?.id.toString()}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("selectAddress")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id.toString()}>
+                        {address.address}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {selectedAddress && (
+                  <div className="space-y-4 mt-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">{t("recipientName")} *</Label>
+                        <Input id="name" value={deliveryInfo.name} readOnly />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">{t("phoneNumber")} *</Label>
+                        <Input id="phone" value={deliveryInfo.phone} readOnly />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="address">{t("detailedAddress")} *</Label>
+                      <Input id="address" value={deliveryInfo.address} readOnly />
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="building">{t("buildingNumber")}</Label>
+                        <Input id="building" value={deliveryInfo.building} readOnly />
+                      </div>
+                      <div>
+                        <Label htmlFor="floor">{t("roomNumber")}</Label>
+                        <Input id="floor" value={deliveryInfo.floor} readOnly />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="notes">{t("notes")}</Label>
+                      <Textarea
+                        id="notes"
+                        value={deliveryInfo.notes}
+                        onChange={(e) => setDeliveryInfo({ ...deliveryInfo, notes: e.target.value })}
+                        placeholder={t("notesPlaceholder")}
+                        rows={3}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="phone">{t("phoneNumber")} *</Label>
-                    <Input
-                      id="phone"
-                      value={deliveryInfo.phone}
-                      onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value })}
-                      placeholder={t("enterPhoneNumber")}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="address">{t("detailedAddress")} *</Label>
-                  <Input
-                    id="address"
-                    value={deliveryInfo.address}
-                    onChange={(e) => setDeliveryInfo({ ...deliveryInfo, address: e.target.value })}
-                    placeholder={t("enterDetailedAddress")}
-                  />
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="building">{t("buildingNumber")}</Label>
-                    <Input
-                      id="building"
-                      value={deliveryInfo.building}
-                      onChange={(e) => setDeliveryInfo({ ...deliveryInfo, building: e.target.value })}
-                      placeholder={t("buildingExample")}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="floor">{t("roomNumber")}</Label>
-                    <Input
-                      id="floor"
-                      value={deliveryInfo.floor}
-                      onChange={(e) => setDeliveryInfo({ ...deliveryInfo, floor: e.target.value })}
-                      placeholder={t("roomExample")}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="notes">{t("notes")}</Label>
-                  <Textarea
-                    id="notes"
-                    value={deliveryInfo.notes}
-                    onChange={(e) => setDeliveryInfo({ ...deliveryInfo, notes: e.target.value })}
-                    placeholder={t("notesPlaceholder")}
-                    rows={3}
-                  />
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -240,7 +296,9 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>{t("deliveryFee")}</span>
-                    <span className="text-green-600">{t("free")}</span>
+                    <span>
+                      {deliveryFee !== null ? `¥${deliveryFee.toFixed(2)}` : t("calculating")}
+                    </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">

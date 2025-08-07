@@ -34,6 +34,8 @@ class AddressSeeder extends Seeder
                 'building' => 'Block A',
                 'floor' => 'Level 3, Unit 3A',
                 'is_default' => true,
+                'latitude' => 1.4810,
+                'longitude' => 103.6544,
             ]);
 
             // 第二个地址（非默认）
@@ -45,6 +47,8 @@ class AddressSeeder extends Seeder
                 'building' => 'Block B',
                 'floor' => 'Ground Floor, Lot 2',
                 'is_default' => false,
+                'latitude' => 1.4838,
+                'longitude' => 103.6582,
             ]);
 
             // 如果是第一个用户，额外添加一个地址
@@ -57,6 +61,8 @@ class AddressSeeder extends Seeder
                     'building' => 'Sutera Mall Residence',
                     'floor' => '12A-05',
                     'is_default' => false,
+                    'latitude' => 1.5159,
+                    'longitude' => 103.6693,
                 ]);
             }
         }

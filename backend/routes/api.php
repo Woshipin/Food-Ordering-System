@@ -88,4 +88,8 @@ Route::group(['middleware' => 'auth:api'], function () {
     // 6. Ruta adicional para marcar una dirección como predeterminada
     // PATCH /api/addresses/{address}/set-default
     Route::patch('/address/{address}/set-default', [AddressController::class, 'setDefault']);
+
+    // Calculate delivery fee
+    Route::post('/delivery-fee', [AddressController::class, 'calculateDeliveryFee']);
+
 });
