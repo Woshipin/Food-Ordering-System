@@ -10,6 +10,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutOptionController;
 use App\Http\Controllers\CMSControlled;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::group([
@@ -92,4 +93,7 @@ Route::group(['middleware' => 'auth:api'], function () {
     // Calculate delivery fee
     Route::post('/delivery-fee', [AddressController::class, 'calculateDeliveryFee']);
 
+    Route::post('/add-order', [OrderController::class, 'store']);
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{order}', [OrderController::class, 'show']);
 });

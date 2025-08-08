@@ -154,6 +154,7 @@ export default function CartPage() {
 
   const [cartData, setCartData] = useState<CartData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false); // New state for order placement loading
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -233,26 +234,14 @@ export default function CartPage() {
     if (serviceType === 'delivery' && deliveryAddress && storeLocation && addresses.length > 0) {
       const selectedAddress = addresses.find(addr => addr.id === deliveryAddress);
       
-      console.groupCollapsed("--- Delivery Fee Calculation ---");
-
       if (selectedAddress && selectedAddress.latitude && selectedAddress.longitude && storeLocation.latitude && storeLocation.longitude) {
         
-        console.log("SYSTEM (Store) Address Coords:", {
-          latitude: storeLocation.latitude,
-          longitude: storeLocation.longitude
-        });
-        console.log("USER Selected Address Coords:", {
-          latitude: selectedAddress.latitude,
-          longitude: selectedAddress.longitude
-        });
-
         const distance = calculateDistance(
           storeLocation.latitude,
           storeLocation.longitude,
           selectedAddress.latitude,
           selectedAddress.longitude
         );
-        console.log(`Calculated Distance: ${distance.toFixed(2)} km`);
 
         // --- Your Custom Delivery Fee Calculation Logic ---
         const BASE_FEE = 3.00;
@@ -268,17 +257,12 @@ export default function CartPage() {
             finalFee = Math.min(calculatedFee, MAX_FEE);
         }
         
-        console.log(`FINAL DELIVERY FEE: RM ${finalFee.toFixed(2)}`);
         setDeliveryFee(finalFee);
 
       } else {
-        console.warn("Fallback fee calculation triggered. Check for missing coordinates.");
         const staticFee = Number(serviceMethods.find(s => s.name === 'delivery')?.fee || 5.00);
         setDeliveryFee(staticFee);
-        console.log(`Using fallback fee: RM ${staticFee.toFixed(2)}`);
       }
-      console.groupEnd();
-
     } else {
       setDeliveryFee(0);
     }
@@ -359,6 +343,36 @@ export default function CartPage() {
     { id: 3, title: t('paymentStep') || 'Payment', description: t('selectPayment') || 'Payment Method' },
     { id: 4, title: t('confirmStep') || 'Confirm', description: t('verifyInfo') || 'Final Review' },
   ];
+
+  const handlePlaceOrder = async () => {
+    if (!cartData || isPlacingOrder) return; // Prevent multiple clicks
+
+    setIsPlacingOrder(true); // Set loading state
+
+    const orderData = {
+      service_method_name: serviceType,
+      payment_method_name: paymentMethod,
+      address_id: serviceType === 'delivery' ? deliveryAddress : null,
+      pickup_time: serviceType === 'pickup' && pickupTime ? pickupTime.slice(0, 16) : null, // Format for backend
+      special_instructions: specialInstructions,
+      promo_code: promoCode,
+      delivery_fee: deliveryFee,
+      discount_amount: discountAmount,
+      subtotal: subtotal,
+      total_amount: total,
+    };
+
+    try {
+      const response = await axios.post('/add-order', orderData);
+      toast.success(response.data.message);
+      router.push("/");
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "Failed to place order.";
+      toast.error(errorMessage);
+    } finally {
+      setIsPlacingOrder(false); // Reset loading state
+    }
+  };
 
   if (isLoading || authIsLoading) {
     return (
@@ -580,7 +594,6 @@ export default function CartPage() {
                   <div className="text-lg font-semibold">{method.display_name}</div>
                   <p className="text-sm text-gray-600">{method.description}</p>
                   
-                  {/* MODIFIED: Dynamically show the delivery fee or other details */}
                   {serviceType === 'delivery' && method.name === 'delivery' ? (
                       <p className="text-sm font-medium text-blue-600">
                           {deliveryFee > 0 ? `Fee: RM ${deliveryFee.toFixed(2)}` : 'Free Delivery'}
@@ -938,12 +951,21 @@ export default function CartPage() {
 
               <div className="space-y-3">
                 <Button
-                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-lg py-6 rounded-xl shadow-lg font-semibold transition-all duration-300 hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
-                  onClick={currentStep === 4 ? () => toast.success("Order placed successfully!") : nextStep}
-                  disabled={!canProceed()}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-lg py-6 rounded-xl shadow-lg font-semibold transition-all duration-300 hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={currentStep === 4 ? handlePlaceOrder : nextStep}
+                  disabled={!canProceed() || isPlacingOrder}
                 >
-                  {getNextButtonText()}
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  {isPlacingOrder && currentStep === 4 ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Placing Order...
+                    </>
+                  ) : (
+                    <>
+                      {getNextButtonText()}
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
                 </Button>
                 
                 {currentStep > 1 && (
@@ -951,6 +973,7 @@ export default function CartPage() {
                     variant="outline"
                     className="w-full border-2 border-gray-300 hover:border-orange-500 hover:text-orange-500 py-3 rounded-xl font-medium transition-all duration-300"
                     onClick={prevStep}
+                    disabled={isPlacingOrder}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to {steps[currentStep - 2]?.title}

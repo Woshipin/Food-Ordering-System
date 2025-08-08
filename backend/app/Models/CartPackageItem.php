@@ -19,4 +19,9 @@ class CartPackageItem extends Model
     {
         return $this->hasMany(CartPackageItemMenu::class);
     }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(MenuPackage::class, 'menu_package_id');
+    }
 }

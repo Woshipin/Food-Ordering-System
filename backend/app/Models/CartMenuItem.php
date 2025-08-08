@@ -24,4 +24,9 @@ class CartMenuItem extends Model
     {
         return $this->hasMany(CartMenuItemVariant::class);
     }
+
+    public function menu(): BelongsTo
+    {
+        return $this->belongsTo(Menu::class);
+    }
 }
