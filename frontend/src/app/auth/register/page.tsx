@@ -78,18 +78,14 @@ export default function RegisterPage() {
       toast.success(t("registrationSuccess"));
       // 调用 AuthContext 中的 login 方法，保存用户信息和 token
       login(userResponse.data, access_token);
-      
+
       // 2秒后重定向到首页
       setTimeout(() => {
         window.location.href = "/";
       }, 2000);
     } catch (error: any) {
       // 处理注册失败的情况
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.errors
-      ) {
+      if (error.response && error.response.data && error.response.data.errors) {
         // 如果后端返回了验证错误
         const errors = error.response.data.errors;
         Object.values(errors).forEach((error) => {
@@ -336,20 +332,8 @@ export default function RegisterPage() {
                         htmlFor="agreeToTerms"
                         className="text-sm text-gray-600"
                       >
-                        {t("iAgreeTo")}{" "}
-                        <Link
-                          href="/"
-                          className="text-orange-500 hover:text-orange-600 transition-colors"
-                        >
-                          {t("termsOfServiceLink")}
-                        </Link>{" "}
-                        {t("and")}{" "}
-                        <Link
-                          href="/"
-                          className="text-orange-500 hover:text-orange-600 transition-colors"
-                        >
-                          {t("privacyPolicyLink")}
-                        </Link>
+                        {t("iAgreeTo")} {t("termsOfServiceLink")} {t("and")}{" "}
+                        {t("privacyPolicyLink")}
                       </Label>
                     </div>
 

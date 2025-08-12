@@ -41,8 +41,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   // 表单数据状态
   const [formData, setFormData] = useState({
-    email: "sss@gmail.com",
-    password: "••••••••",
+    email: "aaa@gmail.com",
+    password: "123456",
     rememberMe: false,
   });
 
