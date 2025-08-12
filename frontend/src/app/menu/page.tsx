@@ -246,11 +246,11 @@ const MenuItemCard = ({ item }: { item: MenuItemData }) => {
           <div className="flex items-baseline justify-end mb-4">
             {item.promotion_price ? (
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 line-through">¥{item.base_price}</span>
-                <span className="text-red-500 font-bold text-xl">¥{item.promotion_price}</span>
+                <span className="text-gray-500 line-through">RM{item.base_price}</span>
+                <span className="text-red-500 font-bold text-xl">RM{item.promotion_price}</span>
               </div>
             ) : (
-              <span className="text-orange-500 font-bold text-xl">¥{item.base_price}</span>
+              <span className="text-orange-500 font-bold text-xl">RM{item.base_price}</span>
             )}
           </div>
           <Link href={`/menu/${item.id}`} className="block w-full">

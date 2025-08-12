@@ -1,9 +1,9 @@
 "use client";
 
-export function AddressSkeleton() {
+export function AddressSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-4">
-      {[...Array(3)].map((_, i) => (
+      {[...Array(count)].map((_, i) => (
         <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm animate-pulse">
           <div className="flex items-start justify-between">
             <div className="flex-1">

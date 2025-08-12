@@ -88,26 +88,34 @@ export default function EditProfilePage() {
   return (
     <>
       <Toaster richColors position="top-center" />
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/profile">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">{t("editProfile")}</h1>
-            </div>
-            <LanguageSwitcher />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-orange-100 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
+          <div className="absolute top-0 right-0 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-2000"></div>
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-72 h-72 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-4000"></div>
         </div>
-      </header>
+        
+        {/* Header */}
+        <header className="sticky top-0 z-50 bg-gradient-to-r from-orange-500 to-red-500 shadow-2xl">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <Link href="/profile">
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 transition-colors">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">{t("editProfile")}</h1>
+              </div>
+              <div className="flex items-center">
+                <LanguageSwitcher />
+              </div>
+            </div>
+          </div>
+        </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <Card>
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="shadow-2xl bg-white/95 backdrop-blur-sm border-0 rounded-3xl overflow-hidden">
           <CardHeader>
             <CardTitle>{t("editProfile")}</CardTitle>
           </CardHeader>
@@ -184,58 +192,18 @@ export default function EditProfilePage() {
 
               {/* Action Buttons */}
               <div className="flex gap-4 pt-6">
-                <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-600" disabled={isLoading}>
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl shadow-lg" disabled={isLoading}>
                   <Save className="mr-2 h-4 w-4" />
                   {isLoading ? t("loading") : t("saveChanges")}
                 </Button>
                 <Link href="/profile" className="flex-1">
-                  <Button type="button" variant="outline" className="w-full bg-transparent">
+                  <Button type="button" variant="outline" className="w-full bg-transparent rounded-xl">
                     <X className="mr-2 h-4 w-4" />
                     {t("cancel")}
                   </Button>
                 </Link>
               </div>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* Additional Settings */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>账户安全</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-3 border-b">
-              <div>
-                <div className="font-medium">修改密码</div>
-                <div className="text-sm text-gray-500">定期更换密码保护账户安全</div>
-              </div>
-              <Button variant="outline" size="sm">
-                修改
-              </Button>
-            </div>
-            <div className="flex items-center justify-between py-3 border-b">
-              <div>
-                <div className="font-medium">双重验证</div>
-                <div className="text-sm text-gray-500">增强账户安全性</div>
-              </div>
-              <Button variant="outline" size="sm">
-                设置
-              </Button>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <div>
-                <div className="font-medium">注销账户</div>
-                <div className="text-sm text-gray-500">永久删除您的账户和所有数据</div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 bg-transparent"
-              >
-                注销
-              </Button>
-            </div>
           </CardContent>
         </Card>
       </div>

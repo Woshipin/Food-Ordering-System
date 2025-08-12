@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   Mail,
   LogOut,
-  Star,
   ChevronDown,
   Phone,
   AlertCircle,
@@ -475,7 +474,7 @@ export default function ProfilePage() {
                                 {/* Section for Individual Menu Items */}
                                 {order.menu_items && order.menu_items.length > 0 && (
                                     <div>
-                                        <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2"><UtensilsCrossed className="h-5 w-5 text-orange-600"/>Individual Dishes</h3>
+                                        <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2"><UtensilsCrossed className="h-5 w-5 text-orange-600"/>Menu Item</h3>
                                         <div className="space-y-4">
                                             {order.menu_items.map((item) => (
                                                 <div key={`menu-item-${item.id}`} className="bg-gray-50/50 rounded-lg p-4 border">
@@ -513,7 +512,7 @@ export default function ProfilePage() {
                                 {/* Section for Package Items */}
                                 {order.package_items && order.package_items.length > 0 && (
                                      <div>
-                                        <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="h-5 w-5 text-orange-600"/>Package Combos</h3>
+                                        <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="h-5 w-5 text-orange-600"/>Package Item</h3>
                                         <div className="space-y-4">
                                             {order.package_items.map((pkg) => (
                                                 <div key={`pkg-item-${pkg.id}`} className="bg-gray-50/50 rounded-lg p-4 border">
