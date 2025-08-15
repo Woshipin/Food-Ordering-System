@@ -41,6 +41,7 @@ return [
             'provider' => 'users',
         ],
 
+        // auth verification in authcontroller
         'api' => [
             'driver' => 'jwt',
             'provider' => 'users',

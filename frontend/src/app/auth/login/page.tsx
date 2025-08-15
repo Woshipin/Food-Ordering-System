@@ -1,10 +1,9 @@
-// 文件路径: pages/auth/login.tsx (或您的项目中的相应路径)
-
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Eye,
@@ -29,10 +28,12 @@ import { useLanguage } from "../../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
 import { Toaster, toast } from "sonner";
 import axios from "../../../lib/axios";
+import { LoginFormState, LoginValidationErrors } from "./lib/types";
 
 export default function LoginPage() {
   // 使用语言切换钩子
   const { t } = useLanguage();
+  const router = useRouter();
   // 使用认证钩子
   const { login } = useAuth();
   // 控制密码是否可见的状态
@@ -40,16 +41,27 @@ export default function LoginPage() {
   // 控制加载状态
   const [isLoading, setIsLoading] = useState(false);
   // 表单数据状态
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LoginFormState>({
     email: "aaa@gmail.com",
     password: "123456",
     rememberMe: false,
   });
-
-  // 处理表单提交
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [errors, setErrors] = useState<LoginValidationErrors>({});
+ 
+   // 使用 useEffect 在组件加载时清空表单字段
+   useEffect(() => {
+     setFormData((prev) => ({
+       ...prev,
+       email: "",
+       password: "",
+     }));
+   }, []); // 空依赖数组确保只在组件首次加载时运行
+ 
+   // 处理表单提交
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); // 阻止表单默认提交行为
     setIsLoading(true); // 开始加载
+    setErrors({}); // 清除之前的错误
 
     try {
       // 发送登录请求到后端 /api/auth/login
@@ -73,7 +85,7 @@ export default function LoginPage() {
       
       // 2秒后重定向到首页
       setTimeout(() => {
-        window.location.href = "/";
+        router.push("/");
       }, 2000);
     } catch (error: any) {
       // 处理登录失败的情况
@@ -83,7 +95,11 @@ export default function LoginPage() {
         error.response.data.message
       ) {
         // 如果后端返回了具体的错误信息，则显示它
-        toast.error(error.response.data.message);
+        if (error.response.data.errors) {
+          setErrors(error.response.data.errors);
+        } else {
+          toast.error(error.response.data.message);
+        }
       } else {
         // 否则显示通用的登录失败信息
         toast.error(t("loginFailed"));
@@ -164,8 +180,14 @@ export default function LoginPage() {
                           placeholder={t("emailPlaceholder")}
                           className="pl-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                           required
+                          autoComplete="email"
                         />
                       </div>
+                      {errors.email && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.email[0]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -186,6 +208,7 @@ export default function LoginPage() {
                           placeholder={t("passwordPlaceholder")}
                           className="pl-10 pr-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                           required
+                          autoComplete="current-password"
                         />
                         <Button
                           type="button"
@@ -202,6 +225,11 @@ export default function LoginPage() {
                         </Button>
                       </div>
                     </div>
+                    {errors.password && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.password[0]}
+                      </p>
+                    )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">

@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Eye,
@@ -29,10 +30,12 @@ import { useLanguage } from "../../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
 import { Toaster, toast } from "sonner";
 import axios from "../../../lib/axios";
+import { RegisterFormState, RegisterValidationErrors } from "./lib/types";
 
 export default function RegisterPage() {
   // 使用语言切换钩子
   const { t } = useLanguage();
+  const router = useRouter();
   // 使用认证钩子
   const { login } = useAuth();
   // 控制密码是否可见的状态
@@ -42,7 +45,7 @@ export default function RegisterPage() {
   // 控制加载状态
   const [isLoading, setIsLoading] = useState(false);
   // 表单数据状态
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegisterFormState>({
     name: "",
     email: "",
     phone_number: "",
@@ -51,6 +54,7 @@ export default function RegisterPage() {
     password_confirmation: "",
     agreeToTerms: false,
   });
+  const [errors, setErrors] = useState<RegisterValidationErrors>({});
 
   // 处理表单提交
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,6 +65,7 @@ export default function RegisterPage() {
       return;
     }
     setIsLoading(true); // 开始加载
+    setErrors({}); // 清除之前的错误
 
     try {
       // 发送注册请求到后端 /api/auth/register
@@ -81,16 +86,13 @@ export default function RegisterPage() {
 
       // 2秒后重定向到首页
       setTimeout(() => {
-        window.location.href = "/";
+        router.push("/");
       }, 2000);
     } catch (error: any) {
       // 处理注册失败的情况
       if (error.response && error.response.data && error.response.data.errors) {
         // 如果后端返回了验证错误
-        const errors = error.response.data.errors;
-        Object.values(errors).forEach((error) => {
-          toast.error((error as string[]).join(" "));
-        });
+        setErrors(error.response.data.errors);
       } else if (
         error.response &&
         error.response.data &&
@@ -184,6 +186,11 @@ export default function RegisterPage() {
                           required
                         />
                       </div>
+                      {errors.name && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.name[0]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -206,6 +213,11 @@ export default function RegisterPage() {
                           required
                         />
                       </div>
+                      {errors.email && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.email[0]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -225,8 +237,14 @@ export default function RegisterPage() {
                           onChange={handleChange}
                           placeholder={t("phoneNumberPlaceholder")}
                           className="pl-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                          autoComplete="tel"
                         />
                       </div>
+                      {errors.phone_number && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.phone_number[0]}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -256,6 +274,7 @@ export default function RegisterPage() {
                           placeholder={t("passwordPlaceholder")}
                           className="pl-10 pr-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                           required
+                          autoComplete="new-password"
                         />
                         <Button
                           type="button"
@@ -271,6 +290,11 @@ export default function RegisterPage() {
                           )}
                         </Button>
                       </div>
+                      {errors.password && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.password[0]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -291,6 +315,7 @@ export default function RegisterPage() {
                           placeholder={t("passwordPlaceholder")}
                           className="pl-10 pr-10 bg-white border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                           required
+                          autoComplete="new-password"
                         />
                         <Button
                           type="button"
@@ -308,6 +333,11 @@ export default function RegisterPage() {
                           )}
                         </Button>
                       </div>
+                      {errors.password_confirmation && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.password_confirmation[0]}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

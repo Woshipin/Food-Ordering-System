@@ -332,7 +332,7 @@ export function AddressFormModal({
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 rounded-md py-2.5 font-medium transition-all duration-200"
+                className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 rounded-xl py-2.5 font-medium transition-all duration-200"
               >
                 {t("cancel")}
               </Button>
@@ -341,7 +341,7 @@ export function AddressFormModal({
               type="submit"
               disabled={isSaving}
               onClick={handleSubmit}
-              className="flex-1 bg-gradient-to-r from-orange-500 via-orange-400 to-amber-500 hover:from-orange-600 hover:via-orange-500 hover:to-amber-600 text-white rounded-md py-2.5 font-semibold shadow-lg shadow-orange-200/50 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl py-2.5 font-semibold shadow-lg shadow-orange-200/50 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none"
             >
               {isSaving ? (
                 <div className="flex items-center justify-center">
