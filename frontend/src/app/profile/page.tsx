@@ -316,8 +316,8 @@ export default function ProfilePage() {
   ) => {
     const isEditing = !!addressData.id; // 判断是编辑还是新增
     const url = isEditing
-      ? `address/update/${addressData.id}`
-      : "address/add";
+      ? `/address/update/${addressData.id}`
+      : "/address/add";
     const method = isEditing ? "put" : "post";
 
     const promise = axios[method](url, addressData).then(() => {

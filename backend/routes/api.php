@@ -30,6 +30,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutOptionController;
 use App\Http\Controllers\CMSControlled;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -50,8 +51,11 @@ Route::middleware('api')->group(function () {
     // --- 认证路由组 (Authentication Routes) ---
     // 这个组内的所有路由都会自动添加 `/auth` 前缀
     Route::controller(AuthController::class)->prefix('auth')->group(function () {
-        Route::post('login', 'login');
-        Route::post('register', 'register');
+        // 为登录和注册接口应用更严格的限流：每分钟5次
+        Route::post('login', 'login')->middleware('throttle:5,1');
+        Route::post('register', 'register')->middleware('throttle:5,1');
+
+        // 其他认证相关接口使用默认的API限流（每分钟60次）
         Route::post('logout', 'logout');
         Route::post('refresh', 'refresh');
         Route::get('me', 'me');
@@ -61,6 +65,9 @@ Route::middleware('api')->group(function () {
     // --- 公开路由组 (Public Routes) ---
     // 无需认证即可访问的路由
     Route::group([], function() {
+        // --- 健康检查 ---
+        Route::get('/health', [HealthCheckController::class, 'check']);
+
         // 内容管理系统 (CMS)
         Route::controller(CMSControlled::class)->prefix('cms')->group(function () {
             Route::get('/home', 'homeCms');
