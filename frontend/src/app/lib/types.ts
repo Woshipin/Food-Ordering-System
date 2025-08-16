@@ -22,14 +22,8 @@ export interface HomeData {
   hero_title: string;                     // 网站主标题 (例如: "美味之家")
   hero_main_title: string;                // 英雄区大标题 (例如: "品味极致美食")
   hero_description: string;               // 英雄区描述文本
-  hero_background_image: string;          // [新增] 英雄区背景图片URL
   order_now_button_text: string;          // "立即下单" 按钮文本
   view_menu_button_text: string;          // "查看菜单" 按钮文本
-
-  // --- Story Section (我们的故事区) ---
-  story_title: string;                    // [新增] 故事区标题
-  story_description: string;              // [新增] 故事区描述
-  story_image: string;                    // [新增] 故事区图片URL
   
   // --- Stats Section (统计数据区) ---
   stats_satisfied_customers_text: string; // "满意顾客" 标签文本

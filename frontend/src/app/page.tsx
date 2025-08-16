@@ -306,12 +306,8 @@ export default function HomePage() {
       {/* ==================== 页面主体内容 (Main Content) ==================== */}
       <main className="pt-20 sm:pt-24">
         {/* --- 英雄区 (Hero Section) --- */}
-        <section
-          className="relative py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${homeData?.hero_background_image ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'}/storage/${homeData.hero_background_image}` : '/placeholder.svg'})` }}
-        >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-          <div className="relative w-full max-w-none text-center text-white">
+        <section className="relative py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
+          <div className="w-full max-w-none text-center">
             <div className="max-w-6xl mx-auto">
               <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6">
                 <span className="text-orange-500 block">{homeData?.hero_main_title || t("heroSubtitle")}</span>
@@ -355,33 +351,6 @@ export default function HomePage() {
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">24/7</div>
                 <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_all_day_service_text || t("allDayService")}</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* --- 我们的故事 (Story Section) --- */}
-        <section className="py-12 sm:py-16 lg:py-20 bg-white/70 backdrop-blur-sm">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-              <div className="order-2 lg:order-1">
-                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-                  {homeData?.story_title || t("ourStory")}
-                </h3>
-                <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
-                  {homeData?.story_description || t("storyParagraph1")}
-                </p>
-              </div>
-              <div className="order-1 lg:order-2">
-                <div className="relative bg-gradient-to-br from-orange-200 to-amber-200 rounded-2xl p-4 sm:p-6">
-                  <Image
-                    src={homeData?.story_image ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'}/storage/${homeData.story_image}` : "/placeholder.svg?height=400&width=600"}
-                    alt={t("restaurantInterior")}
-                    width={600}
-                    height={400}
-                    className="rounded-xl shadow-lg w-full h-auto"
-                  />
-                </div>
               </div>
             </div>
           </div>
