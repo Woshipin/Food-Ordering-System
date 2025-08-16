@@ -1,167 +1,255 @@
 "use client"
+/**
+ * =====================================================================================
+ * @file        page.tsx
+ * @brief       画廊页面组件
+ * @details
+ *              该页面从后端动态加载所有分类和画廊图片。用户可以通过一个响应式的
+ *              下拉菜单筛选不同分类的图片，并点击图片查看大图。
+ *
+ * @purpose     1.  **动态内容**: 分类和图片完全由后端提供，便于管理。
+ *              2.  **高效过滤**: 图片筛选逻辑已移至后端，前端只请求所需数据，性能更佳。
+ *              3.  **响应式设计**: 使用下拉菜单在不同尺寸的设备（桌面、平板、手机）上
+ *                  都能提供良好的分类选择体验。
+ *
+ * @author      [你的名字]
+ * @date        [当前日期]
+ * =====================================================================================
+ */
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { ArrowLeft, X, Loader2 } from "lucide-react"
-import { Button } from "../../components/ui/button"
-// 1. 从 dialog 组件中导入 DialogTitle
-import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog"
-import { useLanguage } from "../../components/LanguageProvider"
-import { LanguageSwitcher } from "../../components/LanguageSwitcher"
-import axios from "../../lib/axios"
+// --- 核心依赖导入 (Core Dependencies) ---
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
-interface GalleryImage {
-  id: number;
-  src: string;
-  alt: string;
-  category: string;
-  title: string;
-  description: string;
-}
+// --- UI组件和图标导入 (UI Components & Icons) ---
+import { ArrowLeft, X, Loader2, ChevronDown } from "lucide-react";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 
+// --- 自定义Hooks和上下文 (Custom Hooks & Context) ---
+import { useLanguage } from "../../components/LanguageProvider";
+import { LanguageSwitcher } from "../../components/LanguageSwitcher";
+
+// --- 数据和类型导入 (Data & Types) ---
+import axios from "../../lib/axios";
+import { Category, GalleryImage, FormattedGalleryImage } from "./lib/types";
+
+/**
+ * @component GalleryPage
+ * @brief     画廊页面的根组件
+ */
 export default function GalleryPage() {
-  const { t } = useLanguage()
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([])
-  const [loading, setLoading] = useState(true)
+  // --- Hooks ---
+  const { t } = useLanguage();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
+  // --- 状态管理 (State Management) ---
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [galleryImages, setGalleryImages] = useState<FormattedGalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [imagesLoading, setImagesLoading] = useState(false);
+  const [isFilterAreaOpen, setIsFilterAreaOpen] = useState(false);
+
+
+  // --- 数据格式化辅助函数 ---
+  const formatImages = (data: GalleryImage[]): FormattedGalleryImage[] => {
+    return data.map((item) => ({
+      id: item.id,
+      src: `${API_BASE_URL}/storage/${item.image}`,
+      alt: item.title,
+      title: item.title,
+      description: item.description,
+      categoryId: item.category_id,
+    }));
+  };
+
+  // --- 数据获取 (Data Fetching) ---
   useEffect(() => {
-    const fetchGalleryImages = async () => {
-      setLoading(true)
+    const fetchInitialData = async () => {
+      setLoading(true);
       try {
-        const response = await axios.get("/galleries")
-        if (Array.isArray(response.data.data)) {
-          const formattedImages = response.data.data.map((item: any) => ({
-            id: item.id,
-            src: `http://127.0.0.1:8000/storage/${item.image}`,
-            alt: item.title,
-            category: item.category,
-            title: item.title,
-            description: item.description,
-          }))
-          setGalleryImages(formattedImages)
+        const [categoriesResponse, galleriesResponse] = await Promise.all([
+          axios.get("/categories"),
+          axios.get("/galleries"),
+        ]);
+        if (Array.isArray(categoriesResponse.data)) {
+          setCategories(categoriesResponse.data);
+        }
+        if (Array.isArray(galleriesResponse.data.data)) {
+          setGalleryImages(formatImages(galleriesResponse.data.data));
         }
       } catch (error) {
-        console.error("Failed to fetch gallery images:", error)
+        console.error("获取初始化数据失败:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchGalleryImages()
-  }, [])
+    };
+    fetchInitialData();
+  }, []);
 
-  const categories = [
-    { id: "all", name: t("all") },
-    { id: "dishes", name: t("signatureDishes") },
-    { id: "packages", name: t("packageCombos") },
-    { id: "restaurant", name: t("restaurantEnvironment") },
-    { id: "kitchen", name: t("kitchenProduction") },
-  ]
+  useEffect(() => {
+    if (loading) return;
+    const fetchImagesByCategory = async () => {
+      setImagesLoading(true);
+      try {
+        const endpoint = selectedCategoryId
+          ? `/galleries?category_id=${selectedCategoryId}`
+          : "/galleries";
+        const response = await axios.get(endpoint);
+        if (Array.isArray(response.data.data)) {
+          setGalleryImages(formatImages(response.data.data));
+        }
+      } catch (error) {
+        console.error("按分类获取图片失败:", error);
+      } finally {
+        setImagesLoading(false);
+      }
+    };
+    fetchImagesByCategory();
+  }, [selectedCategoryId]);
 
-  const filteredImages =
-    selectedCategory === "all"
-      ? galleryImages
-      : galleryImages.filter((image) => image.category === selectedCategory)
+  // --- 渲染逻辑与辅助函数 (Render Logic & Helpers) ---
+  const getCategoryName = (id: number | null) => {
+    if (id === null) return t("all");
+    return categories.find((c) => c.id === id)?.name || t("selectCategory");
+  };
+
+  const getCategoryNameById = (id: number): string => {
+    return categories.find((c) => c.id === id)?.name || "";
+  };
+  
+  const handleCategorySelect = (categoryId: number | null) => {
+    setSelectedCategoryId(categoryId);
+    setIsFilterAreaOpen(false);
+  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      {/* Header */}
+      {/* ==================== 页头 (Header) ==================== */}
       <header className="sticky top-0 z-50 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 backdrop-blur-sm shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/">
-                <Button variant="ghost" size="icon" className="text-white hover:bg-black">
+                <Button variant="ghost" size="icon" className="text-white hover:bg-black/10">
                   <ArrowLeft className="h-5 w-5 text-white" />
                 </Button>
               </Link>
-              <h1 className="text-2xl font-bold text-white bg-clip-text">
-                {t("galleryPageTitle")}
-              </h1>
+              <h1 className="text-2xl font-bold text-white">{t("galleryPageTitle")}</h1>
             </div>
             <LanguageSwitcher />
           </div>
         </div>
       </header>
 
-      {/* Category Filter Section */}
+      {/* ==================== 分类筛选区 (Category Filter Section) ==================== */}
       <div className="bg-white/70 backdrop-blur-sm border-b border-orange-100/50 py-6">
         <div className="container mx-auto px-4">
-          <div className="flex flex-wrap gap-4 justify-center">
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? "default" : "outline"}
-                className={`rounded-full px-6 py-2 font-medium transition-all duration-300 ${
-                  selectedCategory === category.id 
-                    ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-200 transform scale-105" 
-                    : "bg-white/80 hover:bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-300 hover:shadow-md"
-                }`}
-                onClick={() => setSelectedCategory(category.id)}
-              >
-                {category.name}
-              </Button>
-            ))}
+          <Button 
+            variant="outline" 
+            onClick={() => setIsFilterAreaOpen(!isFilterAreaOpen)}
+            className="w-full flex items-center justify-between bg-white/80 hover:bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-300 hover:shadow-md px-6 py-2 font-medium transition-all duration-300 rounded-full text-base h-12"
+          >
+            <span className="truncate">{getCategoryName(selectedCategoryId)}</span>
+            <ChevronDown className={`h-5 w-5 ml-2 flex-shrink-0 transition-transform duration-200 ${isFilterAreaOpen ? 'rotate-180' : ''}`} />
+          </Button>
+
+          <div 
+            className={`grid transition-all duration-500 ease-in-out ${
+              isFilterAreaOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-orange-200 shadow-inner">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => handleCategorySelect(null)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                      selectedCategoryId === null
+                        ? 'bg-orange-500 text-white border-orange-600 shadow-md'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-orange-100 hover:border-orange-200'
+                    }`}
+                  >
+                    {t("all")}
+                  </button>
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => handleCategorySelect(category.id)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                        selectedCategoryId === category.id
+                          ? 'bg-orange-500 text-white border-orange-600 shadow-md'
+                          : 'bg-white text-gray-700 border-gray-200 hover:bg-orange-100 hover:border-orange-200'
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Gallery Section */}
+
+      {/* ==================== 画廊主体 (Gallery Section) ==================== */}
       <div className="container mx-auto px-4 py-12">
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
           </div>
         ) : (
-          <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredImages.map((image) => (
+          <div className="relative">
+            {imagesLoading && (
+              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex justify-center items-center z-10 rounded-2xl">
+                <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {galleryImages.map((image) => (
                 <div
                   key={image.id}
                   className="group cursor-pointer"
                   onClick={() => setSelectedImage(image.src)}
                 >
                   <div className="relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                    {/* Image Container */}
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <Image
                         src={image.src || "/placeholder.svg"}
                         alt={image.alt}
                         fill
                         className="object-cover group-hover:scale-110 transition-transform duration-700"
-                        unoptimized // Add this if you are using external image URLs with Next.js Image component and don't have them configured in next.config.js
                       />
-                      {/* Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      
-                      {/* Corner Accent */}
                       <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-400/20 to-transparent rounded-bl-2xl" />
                     </div>
-                    
-                    {/* Content */}
                     <div className="p-5">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors duration-300">
-                        {image.title}
-                      </h3>
-                      <p className="text-gray-600 text-sm leading-relaxed">
+                      <div className="flex items-baseline justify-between gap-2 mb-2">
+                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-orange-600 transition-colors duration-300 truncate">
+                          {image.title}
+                        </h3>
+                        <span className="flex-shrink-0 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
+                          {getCategoryNameById(image.categoryId) || "No Category"}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
                         {image.description}
                       </p>
                     </div>
-                    
-                    {/* Hover Effect Border */}
                     <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-200 transition-all duration-300" />
-                    
-                    {/* Bottom Accent Line */}
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-amber-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Empty State */}
-            {filteredImages.length === 0 && (
+            {!imagesLoading && galleryImages.length === 0 && (
               <div className="text-center py-20">
                 <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-12 max-w-md mx-auto shadow-lg">
                   <div className="text-orange-400 text-2xl mb-4">🍽️</div>
@@ -170,14 +258,13 @@ export default function GalleryPage() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
-      {/* Image Modal */}
+      {/* ==================== 图片放大弹窗 (Image Modal) ==================== */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
         <DialogContent className="max-w-4xl w-full p-0 bg-transparent border-none">
-          {/* 2. 为 accessibility 添加一个视觉上隐藏的标题 */}
           <DialogTitle className="sr-only">{t("galleryImage")}</DialogTitle>
           <div className="relative">
             <Button
@@ -203,5 +290,5 @@ export default function GalleryPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

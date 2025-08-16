@@ -65,16 +65,11 @@ class GalleryResource extends Resource
                         ->label('Title')
                         ->required()
                         ->maxLength(255),
-                    Select::make('category')
-                        ->label('Category')
+                    Select::make('category_id')
+                        ->relationship('category', 'name')
                         ->required()
-                        ->options([
-                            'dishes' => 'Dishes',
-                            'packages' => 'Packages',
-                            'restaurant' => 'Restaurant',
-                            'kitchen' => 'Kitchen',
-                        ])
-                        ->searchable(),
+                        ->searchable()
+                        ->preload(),
                     Textarea::make('description')
                         ->label('Description')
                         ->rows(6),
@@ -114,7 +109,7 @@ class GalleryResource extends Resource
                     ->limit(50)
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('category')
+                TextColumn::make('category.name')
                     ->label('Category')
                     ->badge()
                     ->sortable(),
@@ -135,12 +130,9 @@ class GalleryResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('category')
-                    ->options([
-                        'dishes' => 'Dishes',
-                        'packages' => 'Packages',
-                        'restaurant' => 'Restaurant',
-                        'kitchen' => 'Kitchen',
-                    ]),
+                    ->relationship('category', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

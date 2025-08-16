@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->text('description')->nullable();
-            $table->string('category'); // dishes, packages, restaurant, kitchen
+            $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->string('image');    // 图片 URL 或路径
             $table->boolean('gallery_status')->default(true); // 是否启用此画廊项
             $table->timestamps();
