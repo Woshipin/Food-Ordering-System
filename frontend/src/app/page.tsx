@@ -1,186 +1,166 @@
 "use client"
-import Image from "next/image"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Star, Clock, MapPin, Phone, ShoppingCart, ChefHat, Truck, Menu, X, Globe, Plus, Minus, User, LogOut } from "lucide-react"
-import { Button } from "../components/ui/button"
-import { Card, CardContent } from "../components/ui/card"
-import { Badge } from "../components/ui/badge"
-import { LanguageSwitcher } from "../components/LanguageSwitcher"
-import { useLanguage } from "../components/LanguageProvider"
-import { useState, useEffect } from "react"
-import { useAuth } from "@/context/AuthContext"
-import { ClipLoader } from "react-spinners"
-import { useLogout } from "@/hooks/useLogout"
-import axios from "@/lib/axios"
+/**
+ * =====================================================================================
+ * @file        page.tsx
+ * @brief       应用的主页(Landing Page)组件
+ * @details
+ *              这是用户访问网站根URL时看到的第一个页面。它负责展示网站的核心信息，
+ *              包括英雄区、特色菜品、分类、公司优势以及页脚等。
+ *              该页面从后端API获取动态内容，并处理用户交互，如添加到购物车。
+ *
+ * @purpose     1.  **吸引用户**: 通过引人注目的设计和内容吸引访问者。
+ *              2.  **信息展示**: 快速传达餐厅的核心卖点和特色。
+ *              3.  **导航入口**: 提供清晰的导航，引导用户访问菜单、关于我们等其他页面。
+ *              4.  **动态内容**: 从CMS加载内容，使市场营销团队可以轻松更新页面信息。
+ *
+ * @author      [你的名字]
+ * @date        [当前日期]
+ * =====================================================================================
+ */
 
-// [修改] 更新接口以完全匹配后端API返回的字段名（基于home_cms数据库）
-interface HomeData {
-  // Hero
-  hero_title: string;
-  hero_main_title: string;
-  hero_description: string;
-  order_now_button_text: string;
-  view_menu_button_text: string;
-  
-  // Stats
-  stats_satisfied_customers_text: string;
-  stats_avg_delivery_time_text: string;
-  stats_user_rating_text: string;
-  stats_all_day_service_text: string;
+// --- 核心依赖导入 (Core Dependencies) ---
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-  // Popular Categories & Today Special
-  popular_categories_title: string;
-  today_special_title: string;
-  today_special_description: string;
+// --- UI组件和图标导入 (UI Components & Icons) ---
+import { Star, Clock, MapPin, Phone, ShoppingCart, ChefHat, Truck, Menu, X, Plus, Minus, User, LogOut } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { ClipLoader } from "react-spinners";
 
-  // Why Choose Us
-  why_choose_us_title: string;
-  feature_fast_delivery_title: string;
-  feature_fast_delivery_desc: string;
-  feature_quality_ingredients_title: string;
-  feature_quality_ingredients_desc: string;
-  feature_quality_guarantee_title: string;
-  feature_quality_guarantee_desc: string;
+// --- 自定义Hooks和上下文 (Custom Hooks & Context) ---
+import { useLanguage } from "../components/LanguageProvider";
+import { useAuth } from "@/context/AuthContext";
+import { useLogout } from "@/hooks/useLogout";
 
-  // Contact / Business Hours / Delivery
-  business_hours_title: string;
-  business_hours_description: string;
-  contact_title: string;
-  contact_number: string;
-  delivery_title: string;
-  delivery_location: string;
+// --- 数据和类型导入 (Data & Types) ---
+import axios from "@/lib/axios";
+import { HomeData } from "./lib/types"; // [优化] 从分离的文件导入类型
+import { getCategories, getFeaturedItems, getNavItems } from "./lib/data"; // [优化] 从分离的文件导入静态数据
 
-  // Footer
-  footer_slogan: string;
-  footer_privacy_policy_text: string;
-  footer_terms_of_service_text: string;
-  footer_help_center_text: string;
-  footer_all_rights_reserved_text: string;
-}
-
+/**
+ * @component HomePage
+ * @brief     主页的根组件
+ */
 export default function HomePage() {
-  const { t, language } = useLanguage()
-  const { user } = useAuth()
-  const { handleLogout, isLoggingOut } = useLogout()
-  const pathname = usePathname()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [itemStock, setItemStock] = useState<Record<number, number>>({})
-  const [homeData, setHomeData] = useState<HomeData | null>(null)
+  // --- Hooks ---
+  // 多语言上下文，提供翻译函数 `t` 和当前语言 `language`
+  const { t, language } = useLanguage();
+  // 认证上下文，提供当前用户信息 `user`
+  const { user } = useAuth();
+  // 登出Hook，提供处理登出的函数 `handleLogout` 和加载状态 `isLoggingOut`
+  const { handleLogout, isLoggingOut } = useLogout();
+  // Next.js路由Hook，用于获取当前路径以高亮导航链接
+  const pathname = usePathname();
 
+  // --- 状态管理 (State Management) ---
+  // 控制移动端菜单的显示与隐藏
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // 存储特色菜品的模拟库存数量
+  const [itemStock, setItemStock] = useState<Record<number, number>>({});
+  // 存储从后端获取的首页CMS数据
+  const [homeData, setHomeData] = useState<HomeData | null>(null);
+  // 存储本地购物车中每个商品的数量（这是一个简化的本地状态，实际项目应使用全局状态管理）
+  const [cartItems, setCartItems] = useState<{ [key: number]: number }>({});
+
+  // --- 数据获取 (Data Fetching) ---
+  /**
+   * @effect fetchHomeData
+   * @brief  当语言 `language` 改变时，从后端API获取首页的CMS数据。
+   */
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        const response = await axios.get(`/cms/home?lang=${language}`)
-        setHomeData(response.data)
+        // 向后端发送请求，并附带语言参数
+        const response = await axios.get(`/cms/home?lang=${language}`);
+        // 将获取到的数据存入状态
+        setHomeData(response.data);
       } catch (error) {
-        console.error("Error fetching home page data:", error)
+        // 如果请求失败，在控制台打印错误
+        console.error("获取首页数据失败:", error);
       }
-    }
-    fetchHomeData()
-  }, [language])
+    };
+    fetchHomeData();
+  }, [language]); // 依赖项数组，仅当 language 变化时重新执行
 
+  // --- 模拟数据初始化 (Mock Data Initialization) ---
+  // [优化] 将静态数据移至 data.ts，这里只保留与翻译相关的部分
+  const featuredItems = getFeaturedItems(t);
+  const categories = getCategories(t);
+  const navItems = getNavItems(t);
+
+  /**
+   * @effect initializeItemStock
+   * @brief  在组件首次加载时，为特色菜品生成随机的模拟库存。
+   * @todo   在真实项目中，库存应从后端API获取。
+   */
   useEffect(() => {
-    const stock: Record<number, number> = {}
+    const stock: Record<number, number> = {};
     featuredItems.forEach((item) => {
-      stock[item.id] = Math.floor(Math.random() * 15) + 5
-    })
-    setItemStock(stock)
-  }, [])
-  
-  const [cartItems, setCartItems] = useState<{ [key: number]: number }>({})
+      // 为每个商品生成 5 到 19 之间的随机库存
+      stock[item.id] = Math.floor(Math.random() * 15) + 5;
+    });
+    setItemStock(stock);
+  }, []); // 空依赖项数组，表示此effect仅在组件挂载时执行一次
 
+  // --- 购物车逻辑 (Cart Logic) ---
+  /**
+   * @function addToCart
+   * @brief    将指定ID的商品数量加一
+   * @param    {number} itemId - 商品ID
+   */
   const addToCart = (itemId: number) => {
     setCartItems((prev) => ({
       ...prev,
       [itemId]: (prev[itemId] || 0) + 1,
-    }))
-  }
+    }));
+  };
 
+  /**
+   * @function removeFromCart
+   * @brief    将指定ID的商品数量减一，最小为0
+   * @param    {number} itemId - 商品ID
+   */
   const removeFromCart = (itemId: number) => {
     setCartItems((prev) => ({
       ...prev,
       [itemId]: Math.max((prev[itemId] || 0) - 1, 0),
-    }))
-  }
+    }));
+  };
 
-  const featuredItems = [
-    {
-      id: 1,
-      name: t("signatureBeefNoodles") || "招牌牛肉面",
-      price: 28.0,
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.8,
-      reviews: 156,
-      description: t("beefNoodlesDesc") || "精选优质牛肉，手工拉面，浓郁汤底",
-    },
-    {
-      id: 2,
-      name: t("spicyHotPot") || "麻辣香锅",
-      price: 32.0,
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.7,
-      reviews: 89,
-      description: t("hotPotDesc") || "新鲜蔬菜配香辣调料，口感丰富",
-    },
-    {
-      id: 3,
-      name: t("steamedDumplings") || "蒸饺套餐",
-      price: 18.0,
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.9,
-      reviews: 234,
-      description: t("dumplingsDesc") || "手工包制，皮薄馅大，营养丰富",
-    },
-    {
-      id: 4,
-      name: t("braisedPork") || "红烧肉",
-      price: 35.0,
-      image: "/placeholder.svg?height=300&width=400",
-      rating: 4.7,
-      reviews: 98,
-      description: t("braisedPorkDesc") || "肥而不腻，入口即化，家的味道",
-    },
-  ]
-
-  const categories = [
-    { name: t("main"), icon: "🍜", count: 25 },
-    { name: t("appetizer"), icon: "🥟", count: 18 },
-    { name: t("beverage"), icon: "🥤", count: 12 },
-    { name: t("dessert"), icon: "🍰", count: 8 },
-    { name: t("package"), icon: "🍱", count: 6 },
-    { name: t("vegetarianFood"), icon: "🥗", count: 15 },
-  ]
-
-  const navItems = [
-    { href: "/menu", label: t("menu") || "Menu" },
-    { href: "/package", label: t("packages") || "Packages" },
-    { href: "/gallery", label: t("gallery") || "Gallery" },
-    { href: "/about", label: t("about") || "About Us" },
-    { href: "/contact", label: t("contact") || "Contact" },
-  ]
-
+  // --- 辅助函数 (Helper Functions) ---
+  /**
+   * @function isActiveRoute
+   * @brief    检查给定的链接是否为当前活动路由
+   * @param    {string} href - 要检查的链接
+   * @returns  {boolean} 如果是活动路由则返回 true
+   */
   const isActiveRoute = (href: string): boolean => {
-    return pathname === href
-  }
+    return pathname === href;
+  };
 
+  // --- 渲染逻辑 (Render Logic) ---
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
-      {/* Header */}
+      {/* ==================== 页头 (Header) ==================== */}
       <header className="fixed top-0 w-full z-40 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-2xl">
         <div className="w-full px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between w-full">
-            {/* Logo */}
+            {/* --- Logo --- */}
             <Link href="/" className="flex items-center space-x-3 flex-shrink-0">
               <div className="bg-white/20 backdrop-blur-sm p-2 rounded-xl border-2 border-white/50 shadow-lg">
                 <ChefHat className="h-7 w-7 text-white" />
               </div>
               <h1 className="text-xl font-bold text-white truncate">
-                {homeData?.hero_title || t("heroTitle") || "Delicious Food"}
+                {homeData?.hero_title || t("heroTitle")}
               </h1>
             </Link>
 
-            {/* Desktop Navigation */}
+            {/* --- 桌面端导航 (Desktop Navigation) --- */}
             <div className="hidden xl:flex justify-center flex-1 mx-4">
               <nav className="flex items-center space-x-1 lg:space-x-2 bg-white/10 backdrop-blur-md rounded-2xl p-1 border-2 border-white/30 shadow-lg">
                 {navItems.map((item) => (
@@ -199,85 +179,58 @@ export default function HomePage() {
               </nav>
             </div>
             
-            {/* Desktop Actions */}
+            {/* --- 桌面端操作按钮 (Desktop Actions) --- */}
             <div className="hidden xl:flex items-center space-x-2 lg:space-x-3">
               {user ? (
+                // 已登录用户视图
                 <>
                   <LanguageSwitcher />
                   <Link href="/cart">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="relative bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-                    >
+                    <Button variant="ghost" size="icon" className="relative bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
                       <ShoppingCart className="h-6 w-6" />
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-lg">
-                        3
-                      </Badge>
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-lg">3</Badge>
                     </Button>
                   </Link>
                   <Link href="/profile">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-                    >
+                    <Button variant="ghost" size="icon" className="bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
                       <User className="h-6 w-6" />
                     </Button>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    className="bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-                  >
+                  <Button variant="ghost" size="icon" onClick={handleLogout} disabled={isLoggingOut} className="bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
                     {isLoggingOut ? <ClipLoader size={24} color={"#fff"} /> : <LogOut className="h-6 w-6" />}
                   </Button>
                 </>
               ) : (
+                // 未登录用户视图
                 <>
                   <Link href="/auth/login">
-                    <Button
-                      variant="outline"
-                      className="bg-white/10 backdrop-blur-md text-white border-2 border-white/50 hover:bg-white hover:text-orange-600 shadow-lg font-medium transition-all duration-300 hover:scale-105"
-                    >
+                    <Button variant="outline" className="bg-white/10 backdrop-blur-md text-white border-2 border-white/50 hover:bg-white hover:text-orange-600 shadow-lg font-medium transition-all duration-300 hover:scale-105">
                       {t("login")}
                     </Button>
                   </Link>
                   <Link href="/auth/register">
-                    <Button
-                      className="bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-medium transition-all duration-300 hover:scale-105"
-                    >
+                    <Button className="bg-white text-orange-600 hover:bg-orange-50 shadow-lg font-medium transition-all duration-300 hover:scale-105">
                       {t("register")}
                     </Button>
                   </Link>
                   <LanguageSwitcher />
                   <Link href="/cart">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="relative bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-                    >
+                    <Button variant="ghost" size="icon" className="relative bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border-2 border-white/50 rounded-xl h-11 w-11 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
                       <ShoppingCart className="h-6 w-6" />
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-lg">
-                        3
-                      </Badge>
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-lg">3</Badge>
                     </Button>
                   </Link>
                 </>
               )}
             </div>
             
-            {/* Mobile Actions */}
+            {/* --- 移动端操作按钮 (Mobile Actions) --- */}
             <div className="flex xl:hidden items-center space-x-2">
                 <LanguageSwitcher />
                 <Link href="/cart">
                     <Button variant="ghost" size="icon" className="relative bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/50 rounded-xl h-10 w-10">
                         <ShoppingCart className="h-5 w-5" />
-                        <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-md">
-                            3
-                        </Badge>
+                        <Badge className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white border-2 border-white shadow-md">3</Badge>
                     </Button>
                 </Link>
                 <Button variant="ghost" size="icon" className="bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/50 rounded-xl h-10 w-10" onClick={() => setIsMobileMenuOpen(true)}>
@@ -288,7 +241,7 @@ export default function HomePage() {
         </div>
       </header>
       
-      {/* Mobile Menu */}
+      {/* ==================== 移动端菜单 (Mobile Menu) ==================== */}
       {isMobileMenuOpen && (
         <div className="fixed top-0 left-0 right-0 z-50 h-auto bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 p-4 pb-8 shadow-xl rounded-b-3xl xl:hidden">
             <div className="flex items-center justify-between mb-8">
@@ -296,7 +249,7 @@ export default function HomePage() {
                 <div className="bg-white/20 backdrop-blur-sm p-2 rounded-xl border border-white/50 shadow-lg">
                   <ChefHat className="h-7 w-7 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-white">{homeData?.hero_title || "Delicious Food"}</h1>
+                <h1 className="text-xl font-bold text-white">{homeData?.hero_title || t("heroTitle")}</h1>
               </Link>
               <Button variant="ghost" size="icon" className="bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/50 rounded-xl h-10 w-10" onClick={() => setIsMobileMenuOpen(false)}>
                 <X className="h-5 w-5" />
@@ -320,30 +273,28 @@ export default function HomePage() {
     
             <div className="flex space-x-4">
               {user ? (
+                // 已登录用户视图
                 <>
                   <Link href="/profile" className="flex-1" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button variant="outline" className="w-full bg-white/10 backdrop-blur-md text-white border-2 border-white/50 hover:bg-white hover:text-orange-600 shadow-lg text-base h-12 font-medium rounded-xl">
                       {t("profile")}
                     </Button>
                   </Link>
-                  <Button
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    className="flex-1 w-full bg-white text-orange-600 hover:bg-orange-50 shadow-lg text-base h-12 font-medium rounded-xl"
-                  >
+                  <Button onClick={handleLogout} disabled={isLoggingOut} className="flex-1 w-full bg-white text-orange-600 hover:bg-orange-50 shadow-lg text-base h-12 font-medium rounded-xl">
                     {isLoggingOut ? <ClipLoader size={24} color={"#f97316"} /> : t("logout")}
                   </Button>
                 </>
               ) : (
+                // 未登录用户视图
                 <>
                   <Link href="/auth/login" className="flex-1" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button variant="outline" className="w-full bg-white/10 backdrop-blur-md text-white border-2 border-white/50 hover:bg-white hover:text-orange-600 shadow-lg text-base h-12 font-medium rounded-xl">
-                      {t("login") || "Login"}
+                      {t("login")}
                     </Button>
                   </Link>
                   <Link href="/auth/register" className="flex-1" onClick={() => setIsMobileMenuOpen(false)}>
                     <Button className="w-full bg-white text-orange-600 hover:bg-orange-50 shadow-lg text-base h-12 font-medium rounded-xl">
-                      {t("register") || "Register"}
+                      {t("register")}
                     </Button>
                   </Link>
                 </>
@@ -352,13 +303,17 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="pt-20 sm:pt-24">
-        {/* Hero Section */}
-        <section className="relative py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
-          <div className="w-full max-w-none text-center">
+      {/* ==================== 页面主体内容 (Main Content) ==================== */}
+      <main className="pt-20 sm:pt-24">
+        {/* --- 英雄区 (Hero Section) --- */}
+        <section
+          className="relative py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6 bg-cover bg-center bg-fixed"
+          style={{ backgroundImage: `url(${homeData?.hero_background_image ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'}/storage/${homeData.hero_background_image}` : '/placeholder.svg'})` }}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          <div className="relative w-full max-w-none text-center text-white">
             <div className="max-w-6xl mx-auto">
               <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6">
-                {/* [修改] 使用 hero_main_title 替代 hero_subtitle */}
                 <span className="text-orange-500 block">{homeData?.hero_main_title || t("heroSubtitle")}</span>
               </h2>
               <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-4xl mx-auto">
@@ -368,13 +323,11 @@ export default function HomePage() {
                 <Link href="/menu">
                   <Button size="lg" className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                     <ShoppingCart className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
-                    {/* [修改] 使用 order_now_button_text 替代 order_now_button */}
                     {homeData?.order_now_button_text || t("orderNow")}
                   </Button>
                 </Link>
                 <Link href="/menu">
                   <Button size="lg" variant="outline" className="text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 bg-white/80 backdrop-blur-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                    {/* [修改] 使用 view_menu_button_text 替代 view_menu_button */}
                     {homeData?.view_menu_button_text || t("viewMenu")}
                   </Button>
                 </Link>
@@ -383,35 +336,58 @@ export default function HomePage() {
           </div>
         </section>
         
-        {/* Stats Section */}
+        {/* --- 统计数据区 (Stats Section) --- */}
         <section className="py-12 sm:py-16 lg:py-20 bg-white px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">1000+</div>
-                {/* [修改] 使用 stats_satisfied_customers_text */}
                 <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_satisfied_customers_text || t("satisfiedCustomers")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">30{t("minutes")}</div>
-                {/* [修改] 使用 stats_avg_delivery_time_text */}
                 <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_avg_delivery_time_text || t("avgDelivery")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">4.8★</div>
-                {/* [修改] 使用 stats_user_rating_text */}
                 <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_user_rating_text || t("userRating")}</div>
               </div>
               <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 p-6 sm:p-8 rounded-3xl shadow-lg">
                 <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-500 mb-2">24/7</div>
-                {/* [修改] 使用 stats_all_day_service_text */}
                 <div className="text-sm sm:text-base lg:text-lg text-gray-600 font-medium">{homeData?.stats_all_day_service_text || t("allDayService")}</div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Categories Section */}
+        {/* --- 我们的故事 (Story Section) --- */}
+        <section className="py-12 sm:py-16 lg:py-20 bg-white/70 backdrop-blur-sm">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
+                  {homeData?.story_title || t("ourStory")}
+                </h3>
+                <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+                  {homeData?.story_description || t("storyParagraph1")}
+                </p>
+              </div>
+              <div className="order-1 lg:order-2">
+                <div className="relative bg-gradient-to-br from-orange-200 to-amber-200 rounded-2xl p-4 sm:p-6">
+                  <Image
+                    src={homeData?.story_image ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'}/storage/${homeData.story_image}` : "/placeholder.svg?height=400&width=600"}
+                    alt={t("restaurantInterior")}
+                    width={600}
+                    height={400}
+                    className="rounded-xl shadow-lg w-full h-auto"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* --- 热门分类区 (Categories Section) --- */}
         <section className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{homeData?.popular_categories_title || t("popularCategories")}</h3>
@@ -431,7 +407,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Featured Items Section */}
+        {/* --- 今日特选区 (Featured Items Section) --- */}
         <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-gray-50 to-orange-50 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none bg-white rounded-2xl shadow-lg p-6 border border-orange-100">
             <div className="text-center mb-8 sm:mb-12">
@@ -448,7 +424,7 @@ export default function HomePage() {
                     <div className="absolute top-3 right-3 z-10">
                       {itemStock[item.id] && (
                         <span className="bg-white/20 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs font-medium">
-                          {t("onlyLeft") || "Only"} {itemStock[item.id]} {t("vibesLeft") || "left"}
+                          {t("onlyLeft")} {itemStock[item.id]} {t("vibesLeft")}
                         </span>
                       )}
                     </div>
@@ -476,7 +452,7 @@ export default function HomePage() {
                         <span>{item.rating}</span>
                       </div>
                       <span>
-                        ({item.reviews} {t("reviews") || "reviews"})
+                        ({item.reviews} {t("reviews")})
                       </span>
                     </div>
                     {cartItems[item.id] > 0 ? (
@@ -499,7 +475,7 @@ export default function HomePage() {
                           </button>
                         </div>
                         <div className="text-center">
-                          <span className="text-sm text-gray-500">{t("subtotalPrice") || 'Subtotal'}: ¥{(item.price * cartItems[item.id]).toFixed(2)}</span>
+                          <span className="text-sm text-gray-500">{t("subtotalPrice")}: ¥{(item.price * cartItems[item.id]).toFixed(2)}</span>
                         </div>
                       </div>
                     ) : (
@@ -517,7 +493,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Features Section */}
+        {/* --- 为何选择我们 (Features Section) --- */}
         <section className="py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-8 sm:mb-12">{homeData?.why_choose_us_title || t("whyChooseUs")}</h3>
@@ -547,73 +523,62 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== CONTACT INFO SECTION: UPDATED FIELDS ===== */}
+        {/* --- 联系信息区 (Contact Info Section) --- */}
         <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-gray-900 to-black text-white px-3 sm:px-4 lg:px-6">
           <div className="w-full max-w-none">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 text-center">
-              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white
-               shadow-lg shadow-white/5">
+              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white/10 shadow-lg shadow-white/5">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                {/* [修改] 使用 business_hours_title */}
                 <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.business_hours_title || t("businessHours")}</h4>
-                {/* [修改] 使用 business_hours_description */}
                 <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.business_hours_description || t("mondayToSunday")}</p>
               </div>
-              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white shadow-lg">
+              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white/10 shadow-lg">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <Phone className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                {/* [修改] 使用 contact_title */}
                 <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.contact_title || t("orderHotline")}</h4>
-                {/* [修改] 使用 contact_number */}
                 <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.contact_number || "400-123-4567"}</p>
               </div>
-              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white shadow-lg sm:col-span-2 lg:col-span-1">
+              <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white/10 shadow-lg sm:col-span-2 lg:col-span-1">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg">
                   <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
-                {/* [修改] 使用 delivery_title */}
                 <h4 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">{homeData?.delivery_title || t("deliveryRange")}</h4>
-                {/* [修改] 使用 delivery_location */}
                 <p className="text-gray-300 text-sm sm:text-base lg:text-lg">{homeData?.delivery_location || t("freeDeliveryRange")}</p>
               </div>
             </div>
           </div>
         </section>
+      </main>
 
-        {/* Footer */}
-        <footer className="bg-gradient-to-br from-gray-800 to-gray-900 text-white py-8 sm:py-12 px-3 sm:px-4 lg:px-6">
-          <div className="w-full max-w-none text-center">
-            <Link href="/" className="flex items-center justify-center space-x-3 mb-6">
-              <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-xl shadow-lg">
-                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-              </div>
-              <span className="text-xl sm:text-2xl lg:text-3xl font-bold">{homeData?.hero_title || t("heroTitle")}</span>
+      {/* ==================== 页脚 (Footer) ==================== */}
+      <footer className="bg-gradient-to-br from-gray-800 to-gray-900 text-white py-8 sm:py-12 px-3 sm:px-4 lg:px-6">
+        <div className="w-full max-w-none text-center">
+          <Link href="/" className="flex items-center justify-center space-x-3 mb-6">
+            <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-xl shadow-lg">
+              <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+            </div>
+            <span className="text-xl sm:text-2xl lg:text-3xl font-bold">{homeData?.hero_title || t("heroTitle")}</span>
+          </Link>
+          <p className="text-gray-400 mb-6 text-base sm:text-lg lg:text-xl max-w-2xl mx-auto">{homeData?.footer_slogan || t("footerSlogan")}</p>
+          <div className="flex justify-center space-x-6 sm:space-x-8 text-sm sm:text-base text-gray-400 mb-6">
+            <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
+              {homeData?.footer_privacy_policy_text || t("privacyPolicy")}
             </Link>
-            <p className="text-gray-400 mb-6 text-base sm:text-lg lg:text-xl max-w-2xl mx-auto">{homeData?.footer_slogan || t("footerSlogan")}</p>
-            <div className="flex justify-center space-x-6 sm:space-x-8 text-sm sm:text-base text-gray-400 mb-6">
-              <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {/* [修改] 使用 footer_privacy_policy_text */}
-                {homeData?.footer_privacy_policy_text || t("privacyPolicy")}
-              </Link>
-              <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {/* [修改] 使用 footer_terms_of_service_text */}
-                {homeData?.footer_terms_of_service_text || t("termsOfService")}
-              </Link>
-              <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
-                {/* [修改] 使用 footer_help_center_text */}
-                {homeData?.footer_help_center_text || t("helpCenter")}
-              </Link>
-            </div>
-            <div className="pt-6 border-t border-gray-700 text-sm sm:text-base text-gray-400">
-              {/* [修改] 使用 footer_all_rights_reserved_text */}
-              © 2024 {homeData?.hero_title || t("heroTitle")}. {homeData?.footer_all_rights_reserved_text || t("allRightsReserved")}.
-            </div>
+            <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
+              {homeData?.footer_terms_of_service_text || t("termsOfService")}
+            </Link>
+            <Link href="/" className="hover:text-white transition-colors hover:scale-105 duration-300">
+              {homeData?.footer_help_center_text || t("helpCenter")}
+            </Link>
           </div>
-        </footer>
-      </div>
+          <div className="pt-6 border-t border-gray-700 text-sm sm:text-base text-gray-400">
+            © 2024 {homeData?.hero_title || t("heroTitle")}. {homeData?.footer_all_rights_reserved_text || t("allRightsReserved")}.
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
