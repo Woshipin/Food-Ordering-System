@@ -227,7 +227,7 @@ class MenuResource extends Resource
                                             // 设置最大文件大小（5MB）
                                             ->maxSize(5120)
                                             // 设置为必填项
-                                            ->required()
+                                            // ->required()
                                             // 让此组件占据整个父容器的宽度
                                             ->columnSpanFull(),
                                     ])

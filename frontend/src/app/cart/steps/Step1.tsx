@@ -76,7 +76,6 @@ const ItemCard = ({ item, type, isReadOnly = false, cartData, setCartData }: { i
                       alt={type === 'menu' ? (item as CartMenuItem).menu_name : (item as CartPackageItem).package_name}
                       fill
                       className="object-contain p-2"
-                      onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                   />
               </div>
               

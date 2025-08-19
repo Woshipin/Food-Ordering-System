@@ -84,6 +84,6 @@ export interface Address {
     building?: string;       // 楼栋号（可选）
     floor?: string;          // 楼层（可选）
     is_default: boolean;     // 是否为默认地址
-    latitude: number;        // 纬度
-    longitude: number;       // 经度
+    latitude: string;        // 纬度
+    longitude: string;       // 经度
 }

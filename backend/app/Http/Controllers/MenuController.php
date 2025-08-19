@@ -2,115 +2,53 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\MenuApiResource;
 use App\Models\Menu;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class MenuController extends Controller
 {
     /**
+     * 显示菜单列表。
      * Display a listing of the menus.
      *
      * GET /api/menus
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        // Retrieve all menus without pagination
+        // 预加载 category 和 images 关系，以避免 N+1 查询问题，提升性能。
         $menus = Menu::with('category', 'images')
-            ->where('menu_status', true)
-            ->latest()
+            ->where('menu_status', true) // 只获取状态为 true (启用) 的菜单。
+            ->latest() // 按创建时间的倒序来排序，最新的菜单会排在最前面。
             ->get();
 
-        // Transform the collection
-        $transformedMenus = $menus->map(function (Menu $menu) {
-            return [
-                'id' => $menu->id,
-                'name' => $menu->name,
-                'description' => $menu->description,
-                'base_price' => (float) $menu->base_price,
-                'promotion_price' => $menu->promotion_price ? (float) $menu->promotion_price : null,
-                'status' => $menu->menu_status,
-                'images' => $menu->images->map(function ($image) {
-                    return [
-                        'id' => $image->id,
-                        'url' => Storage::url($image->image_path),
-                    ];
-                }),
-                'category' => $menu->category ? [
-                    'id' => $menu->category->id,
-                    'name' => $menu->category->name,
-                ] : null,
-            ];
-        });
-
-        // Return a JSON response
-        return response()->json($transformedMenus);
+        // 使用 MenuApiResource 集合来统一格式化菜单列表的 JSON 输出。
+        return MenuApiResource::collection($menus);
     }
 
     /**
+     * 显示指定的菜单详情。
      * Display the specified menu.
      *
      * GET /api/menus/{menu}
      *
      * @param \App\Models\Menu $menu
-     * @return \Illuminate\Http\JsonResponse
+     * @return \App\Http\Resources\MenuApiResource
      */
-    public function show(Menu $menu): JsonResponse
+    public function show(Menu $menu): MenuApiResource
     {
+        // 加载单个菜单的详细关联数据。
         $menu->load([
-            'category',
-            'images',
-            'addons' => fn ($query) => $query->where('addon_status', true),
-            'variants' => fn ($query) => $query->where('variant_status', true),
+            'category', // 加载分类信息
+            'images', // 加载图片信息
+            'addons' => fn ($query) => $query->where('addon_status', true), // 仅加载状态为启用的附加项
+            'variants' => fn ($query) => $query->where('variant_status', true), // 仅加载状态为启用的规格
         ]);
-        $formattedData = $this->formatMenuDetails($menu);
-        return response()->json([
-            'data' => $formattedData,
-        ]);
-    }
 
-    /**
-     * Private helper method to format menu details.
-     *
-     * @param \App\Models\Menu $menu
-     * @return array
-     */
-    private function formatMenuDetails(Menu $menu): array
-    {
-        return [
-            'id' => $menu->id,
-            'name' => $menu->name,
-            'description' => $menu->description,
-            'base_price' => (float) $menu->base_price,
-            'promotion_price' => $menu->promotion_price ? (float) $menu->promotion_price : null,
-            'is_on_promotion' => !is_null($menu->promotion_price),
-            'status' => $menu->menu_status,
-            'category' => $menu->category ? [
-                'id' => $menu->category->id,
-                'name' => $menu->category->name,
-            ] : null,
-            'images' => $menu->images->map(function ($image) {
-                return [
-                    'id' => $image->id,
-                    'url' => Storage::url($image->image_path),
-                ];
-            }),
-            'addons' => $menu->addons->map(function ($addon) {
-                return [
-                    'id' => $addon->id,
-                    'name' => $addon->name,
-                    'price' => isset($addon->price) ? (float) $addon->price : 0.0,
-                ];
-            }),
-            'variants' => $menu->variants->map(function ($variant) {
-                return [
-                    'id' => $variant->id,
-                    'name' => $variant->name,
-                    'price_modifier' => isset($variant->price_modifier) ? (float) $variant->price_modifier : 0.0,
-                ];
-            }),
-        ];
+        // 使用 MenuApiResource 来格式化单个菜单的 JSON 输出。
+        return new MenuApiResource($menu);
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Exceptions\InsufficientStockException; // 建议创建一个自定义异常
 
 class OrderController extends Controller
 {
@@ -171,7 +172,7 @@ class OrderController extends Controller
 
             // --- 4. Clean Up and Finalize ---
             // This is important for a real application to clear the cart after ordering.
-            $cart->delete();
+            // $cart->delete();
 
             DB::commit();
 

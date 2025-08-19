@@ -23,43 +23,8 @@ import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
 import { useAuth } from "../../../context/AuthContext";
 import axios from "../../../lib/axios";
 import { toast } from "sonner";
-
-// --- 数据类型定义 ---
-interface ImageType {
-  id: number;
-  url: string;
-}
-interface CategoryType {
-  id: number;
-  name: string;
-}
-interface VariantType {
-  id: number;
-  name: string;
-  price_modifier: number;
-}
-interface AddonType {
-  id: number;
-  name: string;
-  price: number;
-}
-interface MenuItemType {
-  id: number;
-  name: string;
-  description: string;
-  base_price: number;
-  promotion_price: number | null;
-  is_on_promotion: boolean;
-  status: string;
-  category: CategoryType | null;
-  images: ImageType[];
-  variants: VariantType[];
-  addons: AddonType[];
-  rating?: number;
-  reviews?: number;
-  cookTime?: string;
-  recommendations?: any[];
-}
+import { fetchMenuById } from "../lib/data"; // 从 lib/data.ts 导入数据获取函数
+import { MenuItemType, VariantType } from "../lib/types"; // 从 lib/definitions.ts 导入类型
 
 // --- 组件定义与逻辑 ---
 export default function MenuDetailPage({
@@ -83,44 +48,38 @@ export default function MenuDetailPage({
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
+  // useEffect hook 用于在组件挂载或 id 变化时获取菜单项数据
   useEffect(() => {
     const fetchMenuItem = async () => {
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true); // 开始加载
+      setError(null); // 重置错误状态
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-        const response = await fetch(`${apiUrl}/api/menus/${id}`);
-        if (!response.ok)
-          throw new Error(t("Error Fetch Menu") || "Failed to fetch menu item.");
+        // 调用从 data.ts 导入的函数获取数据
+        const data = await fetchMenuById(id as string);
 
-        const result = await response.json();
-        let data: MenuItemType = result.data;
+        // 为演示目的，添加一些静态数据 (评分和评论)
+        const menuItemWithExtras = {
+          ...data,
+          rating: 4.8,
+          reviews: 156,
+        };
 
-        if (data.images && data.images.length > 0) {
-          data.images = data.images.map((image) => ({
-            ...image,
-            url: `${apiUrl}${image.url}`,
-          }));
-        }
+        setMenuItem(menuItemWithExtras); // 更新菜单项状态
 
-        data.rating = 4.8;
-        data.reviews = 156;
-        data.recommendations = [];
-
-        setMenuItem(data);
-
+        // 如果有规格选项，默认选中第一个
         if (data.variants && data.variants.length > 0) {
           setSelectedVariant(data.variants[0]);
         }
       } catch (err: any) {
+        // 捕获并设置错误信息
         setError(err.message);
       } finally {
+        // 加载结束
         setIsLoading(false);
       }
     };
     fetchMenuItem();
-  }, [id, t]);
+  }, [id]); // 依赖项为 id，当 id 变化时重新执行
 
   const totalPrice = useMemo(() => {
     if (!menuItem) return 0;
@@ -147,7 +106,9 @@ export default function MenuDetailPage({
     if (!menuItem) return;
 
     if (!isAuthenticated) {
-      toast.error(t("Login To Add") || "Please log in to add items to your cart.");
+      toast.error(
+        t("Login To Add") || "Please log in to add items to your cart."
+      );
       router.push("/auth/login");
       return;
     }
@@ -155,19 +116,21 @@ export default function MenuDetailPage({
     setIsAddingToCart(true);
     const toastId = toast.loading(t("Adding to cart") || "Adding to cart...");
 
-    const selectedAddonsDetails = menuItem.addons.filter((addon) =>
-      selectedAddons.includes(addon.id)
-    ).map(addon => ({
+    const selectedAddonsDetails = menuItem.addons
+      .filter((addon) => selectedAddons.includes(addon.id))
+      .map((addon) => ({
         addon_id: addon.id,
         addon_name: addon.name,
-        addon_price: addon.price
-    }));
+        addon_price: addon.price,
+      }));
 
-    const selectedVariantDetail = selectedVariant ? {
-        variant_id: selectedVariant.id,
-        variant_name: selectedVariant.name,
-        variant_price: selectedVariant.price_modifier
-    } : null;
+    const selectedVariantDetail = selectedVariant
+      ? {
+          variant_id: selectedVariant.id,
+          variant_name: selectedVariant.name,
+          variant_price: selectedVariant.price_modifier,
+        }
+      : null;
 
     const cartPayload = {
       menu_id: menuItem.id,
@@ -184,14 +147,18 @@ export default function MenuDetailPage({
 
     try {
       await axios.post("/cart/menu/add", cartPayload);
-      toast.success(t("Added To Cart Success") || "Item added to cart successfully!", {
-        id: toastId,
-      });
+      toast.success(
+        t("Added To Cart Success") || "Item added to cart successfully!",
+        {
+          id: toastId,
+        }
+      );
       router.push("/menu");
     } catch (error: any) {
       console.error("Failed to add to cart:", error);
       toast.error(
-        t("Add To Cart Failed") || "Failed to add item to cart. Please try again.",
+        t("Add To Cart Failed") ||
+          "Failed to add item to cart. Please try again.",
         {
           id: toastId,
           description: error.response?.data?.message || error.message,
@@ -390,16 +357,28 @@ export default function MenuDetailPage({
             {/* 主图片区域 */}
             <div className="bg-white rounded-3xl p-4 shadow-xl border border-orange-200">
               <div className="relative aspect-square sm:aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-orange-100 bg-gradient-to-br from-orange-50 to-white">
+                {/*
+                  进行最终的、最严格的判断：
+                  1. 检查 menuItem.images 是否存在
+                  2. 检查 menuItem.images.length 是否大于 0
+                  3. 检查 menuItem.images[currentImageIndex] 是否存在
+                  4. 检查 menuItem.images[currentImageIndex].url 是否是一个非空字符串
+                  如果以上任一条件不满足，则显示默认图片。
+                */}
                 <Image
                   src={
-                    menuItem.images[currentImageIndex]?.url ||
-                    "/placeholder.svg"
+                    menuItem.images &&
+                    menuItem.images.length > 0 &&
+                    menuItem.images[currentImageIndex] &&
+                    menuItem.images[currentImageIndex].url
+                      ? menuItem.images[currentImageIndex].url
+                      : "/images/No-Image-Available.jpg"
                   }
                   alt={menuItem.name}
                   fill
                   priority
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
-                  className="object-cover transition-transform duration-500 hover:scale-105"
+                  className="object-contain transition-transform duration-500 hover:scale-105"
                 />
                 <Button
                   size="icon"
@@ -411,8 +390,8 @@ export default function MenuDetailPage({
                 </Button>
               </div>
 
-              {/* 缩略图导航 */}
-              {menuItem.images.length > 1 && (
+              {/* 缩略图导航 (仅当图片数量大于1时显示) */}
+              {menuItem.images && menuItem.images.length > 1 && (
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-4">
                   {menuItem.images.map((image, index) => (
                     <button
@@ -429,7 +408,7 @@ export default function MenuDetailPage({
                         src={image.url}
                         alt={`${menuItem.name} ${index + 1}`}
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     </button>
                   ))}

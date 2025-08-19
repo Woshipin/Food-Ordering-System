@@ -68,4 +68,24 @@ export interface Order {
   total_amount: number;
   menu_items: OrderMenuItem[];
   package_items: OrderPackageItem[];
+  
+  // Fields for OrderSummary Component
+  service_method: 'delivery' | 'pickup' | 'dine-in';
+  payment_method: string;
+  payment_status: 'paid' | 'unpaid';
+  special_instructions?: string | null;
+  subtotal: number;
+  delivery_fee: number;
+  discount_amount: number;
+  promo_code?: string | null;
+
+  // Fields for Delivery
+  delivery_name?: string | null;
+  delivery_phone?: string | null;
+  delivery_address?: string | null;
+  delivery_building?: string | null;
+  delivery_floor?: string | null;
+
+  // Fields for Pickup
+  pickup_time?: string | null;
 }

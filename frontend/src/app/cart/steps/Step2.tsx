@@ -1,6 +1,4 @@
 // @/app/cart/steps/Step2.tsx
-// 这个文件代表结账流程的第二步：选择服务方式（外卖或自取）。
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
@@ -11,13 +9,13 @@ import { Badge } from "../../../components/ui/badge";
 import { ServiceMethod, Address } from '../lib/lib';
 import { Icon } from '../function/cartfunction';
 
-// 定义Step2组件需要接收的props类型
 interface Step2Props {
   serviceType: string;
   setServiceType: (value: string) => void;
   serviceMethods: ServiceMethod[];
   deliveryFee: number;
   deliveryDistance: number;
+  isCalculatingFee: boolean;
   pickupTime: string;
   setPickupTime: (value: string) => void;
   specialInstructions: string;
@@ -27,13 +25,13 @@ interface Step2Props {
   addresses: Address[];
 }
 
-// 服务选择组件
 const ServiceSelection: React.FC<Step2Props> = ({
   serviceType,
   setServiceType,
   serviceMethods,
   deliveryFee,
   deliveryDistance,
+  isCalculatingFee,
   pickupTime,
   setPickupTime,
   specialInstructions,
@@ -63,21 +61,14 @@ const ServiceSelection: React.FC<Step2Props> = ({
                   <div className="text-lg font-semibold">{method.display_name}</div>
                   <p className="text-sm text-gray-600">{method.description}</p>
                   
-                  {serviceType === 'delivery' && method.name === 'delivery' ? (
-                    <p className="text-sm font-medium text-blue-600">
-                        {deliveryDistance > 0 
-                            ? `Distance: ${deliveryDistance.toFixed(2)} km | Fee: RM ${deliveryFee.toFixed(2)}`
-                            : 'Calculating...'
-                        }
+                  {serviceType === 'delivery' && method.name === 'delivery' && (
+                    <p className="text-sm font-medium text-blue-600 mt-1">
+                      {isCalculatingFee
+                        ? 'Calculating...'
+                        : `Distance: ${deliveryDistance.toFixed(2)} km | Fee: RM ${deliveryFee.toFixed(2)}`
+                      }
                     </p>
-                  ) : (
-                    method.details && (
-                      <p className={`text-sm font-medium text-green-600`}>
-                        {/* {method.details} */}
-                      </p>
-                    )
                   )}
-
                 </div>
               </div>
             </Label>
