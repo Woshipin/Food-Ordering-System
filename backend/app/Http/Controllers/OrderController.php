@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
-use App\Exceptions\InsufficientStockException; // 建议创建一个自定义异常
+use Illuminate\Support\Facades\Log; // 引入 Log Facade
 
 class OrderController extends Controller
 {
@@ -18,12 +18,13 @@ class OrderController extends Controller
      */
     public function store(Request $request)
     {
+        // --- 用户认证 ---
         $user = auth('api')->user();
         if (!$user) {
             return response()->json(['message' => 'User not authenticated'], 401);
         }
 
-        // Validate the incoming request data
+        // --- 请求验证 ---
         $validated = $request->validate([
             'service_method_name' => 'required|string',
             'payment_method_name' => 'required|string',
@@ -37,7 +38,8 @@ class OrderController extends Controller
             'total_amount' => 'required|numeric|min:0',
         ]);
 
-        // Fetch the user's cart with all nested relationships
+        // --- 获取购物车 ---
+        // 在启动事务前先获取购物车，以便在事务闭包中使用
         $cart = Cart::with([
             'menuItems.addons',
             'menuItems.variants',
@@ -45,145 +47,134 @@ class OrderController extends Controller
             'packageItems.menus.variants',
         ])->where('user_id', $user->id)->first();
 
+        // --- 检查购物车是否为空 ---
         if (!$cart || ($cart->menuItems->isEmpty() && $cart->packageItems->isEmpty())) {
             return response()->json(['message' => 'Your cart is empty.'], 400);
         }
 
-        DB::beginTransaction();
-
+        // --- 启动数据库事务处理订单创建 ---
         try {
-            // --- 1. Create the Main Order Record ---
-            $orderData = [
-                'user_id' => $user->id,
-                'order_number' => 'ORD-' . now()->timestamp . strtoupper(Str::random(6)),
-                'status' => 'pending',
-                'payment_status' => 'unpaid',
-                'service_method' => $validated['service_method_name'],
-                'payment_method' => $validated['payment_method_name'],
-                'subtotal' => $validated['subtotal'],
-                'delivery_fee' => $validated['delivery_fee'],
-                'discount_amount' => $validated['discount_amount'],
-                'total_amount' => $validated['total_amount'],
-                'promo_code' => $validated['promo_code'] ?? null,
-                'special_instructions' => $validated['special_instructions'] ?? null,
-                'pickup_time' => $validated['pickup_time'] ?? null,
-            ];
+            $order = DB::transaction(function () use ($user, $cart, $validated) {
+                // --- 悲观锁定购物车 ---
+                // 在事务内部，锁定购物车以防止并发请求同时处理。
+                $cartLocked = Cart::where('id', $cart->id)->lockForUpdate()->first();
 
-            // Snapshot address details if it's a delivery order
-            if ($validated['service_method_name'] === 'delivery' && !empty($validated['address_id'])) {
-                $address = Address::find($validated['address_id']);
-                if ($address) {
-                    $orderData['delivery_name'] = $address->name;
-                    $orderData['delivery_phone'] = $address->phone;
-                    $orderData['delivery_address'] = $address->address;
-                    $orderData['delivery_building'] = $address->building;
-                    $orderData['delivery_floor'] = $address->floor;
-                    $orderData['delivery_latitude'] = $address->latitude;
-                    $orderData['delivery_longitude'] = $address->longitude;
-                }
-            }
-
-            $order = Order::create($orderData);
-
-            // --- 2. Process and Snapshot Individual Menu Items ---
-            foreach ($cart->menuItems as $cartMenuItem) {
-                $addonsPrice = $cartMenuItem->addons->sum('addon_price');
-                $variantsPrice = $cartMenuItem->variants->sum('variant_price');
-                $singleItemPrice = ($cartMenuItem->promotion_price ?? $cartMenuItem->base_price) + $addonsPrice + $variantsPrice;
-                $itemTotal = $singleItemPrice * $cartMenuItem->quantity;
-
-                $orderMenuItem = $order->menuItems()->create([
-                    'menu_id' => $cartMenuItem->menu_id,
-                    'menu_name' => $cartMenuItem->menu_name,
-                    'menu_description' => $cartMenuItem->menu_description,
-                    'image_url' => $cartMenuItem->image_url,
-                    'category_name' => $cartMenuItem->category_name,
-                    'base_price' => $cartMenuItem->base_price,
-                    'promotion_price' => $cartMenuItem->promotion_price,
-                    'quantity' => $cartMenuItem->quantity,
-                    'item_total' => $itemTotal,
-                ]);
-
-                foreach ($cartMenuItem->addons as $addon) {
-                    $orderMenuItem->addons()->create([
-                        'addon_id' => $addon->addon_id,
-                        'addon_name' => $addon->addon_name,
-                        'addon_price' => $addon->addon_price,
-                    ]);
+                // --- 再次检查购物车 ---
+                // 获取锁后再次检查，确保在等待锁期间购物车未被其他进程清空。
+                if (!$cartLocked || ($cartLocked->menuItems->isEmpty() && $cartLocked->packageItems->isEmpty())) {
+                    // 如果购物车变空，抛出异常以回滚事务。
+                    throw new \Exception('Cart has been cleared while processing.');
                 }
 
-                foreach ($cartMenuItem->variants as $variant) {
-                    $orderMenuItem->variants()->create([
-                        'variant_id' => $variant->variant_id,
-                        'variant_name' => $variant->variant_name,
-                        'variant_price' => $variant->variant_price,
-                    ]);
-                }
-            }
+                // --- 1. 创建主订单记录 ---
+                $orderData = [
+                    'user_id' => $user->id,
+                    'order_number' => 'ORD-' . now()->timestamp . strtoupper(Str::random(6)),
+                    'status' => 'pending',
+                    'payment_status' => 'unpaid',
+                    'service_method' => $validated['service_method_name'],
+                    'payment_method' => $validated['payment_method_name'],
+                    'subtotal' => $validated['subtotal'],
+                    'delivery_fee' => $validated['delivery_fee'],
+                    'discount_amount' => $validated['discount_amount'],
+                    'total_amount' => $validated['total_amount'],
+                    'promo_code' => $validated['promo_code'] ?? null,
+                    'special_instructions' => $validated['special_instructions'] ?? null,
+                    'pickup_time' => $validated['pickup_time'] ?? null,
+                ];
 
-            // --- 3. Process and Snapshot Package Items ---
-            foreach ($cart->packageItems as $cartPackageItem) {
-                $packageExtrasTotal = 0;
-                foreach ($cartPackageItem->menus as $packageMenu) {
-                    $packageExtrasTotal += $packageMenu->addons->sum('addon_price');
-                    $packageExtrasTotal += $packageMenu->variants->sum('variant_price');
-                }
-                $singlePackagePrice = ($cartPackageItem->package_price ?? 0) + $packageExtrasTotal;
-                $packageTotal = $singlePackagePrice * $cartPackageItem->quantity;
-
-                $orderPackageItem = $order->packageItems()->create([
-                    'menu_package_id' => $cartPackageItem->menu_package_id,
-                    'package_name' => $cartPackageItem->package_name,
-                    'package_description' => $cartPackageItem->package_description,
-                    'package_price' => $cartPackageItem->package_price,
-                    'package_image' => $cartPackageItem->package_image,
-                    'category_name' => $cartPackageItem->category_name,
-                    'quantity' => $cartPackageItem->quantity,
-                    'item_total' => $packageTotal,
-                ]);
-
-                foreach ($cartPackageItem->menus as $packageMenu) {
-                    $orderPackageItemMenu = $orderPackageItem->menus()->create([
-                        'menu_id' => $packageMenu->menu_id,
-                        'menu_name' => $packageMenu->menu_name,
-                        'menu_description' => $packageMenu->menu_description,
-                        'base_price' => $packageMenu->base_price,
-                        'promotion_price' => $packageMenu->promotion_price,
-                        'quantity' => $packageMenu->quantity,
-                    ]);
-
-                    foreach ($packageMenu->addons as $addon) {
-                        $orderPackageItemMenu->addons()->create([
-                            'addon_id' => $addon->addon_id,
-                            'addon_name' => $addon->addon_name,
-                            'addon_price' => $addon->addon_price,
-                        ]);
-                    }
-
-                    foreach ($packageMenu->variants as $variant) {
-                        $orderPackageItemMenu->variants()->create([
-                            'variant_id' => $variant->variant_id,
-                            'variant_name' => $variant->variant_name,
-                            'variant_price' => $variant->variant_price,
-                        ]);
+                // 如果是外卖订单，快照地址信息。
+                if ($validated['service_method_name'] === 'delivery' && !empty($validated['address_id'])) {
+                    $address = Address::find($validated['address_id']);
+                    if ($address) {
+                        $orderData['delivery_name'] = $address->name;
+                        $orderData['delivery_phone'] = $address->phone;
+                        $orderData['delivery_address'] = $address->address;
+                        $orderData['delivery_building'] = $address->building;
+                        $orderData['delivery_floor'] = $address->floor;
                     }
                 }
-            }
 
-            // --- 4. Clean Up and Finalize ---
-            // This is important for a real application to clear the cart after ordering.
-            // $cart->delete();
+                $order = Order::create($orderData);
 
-            DB::commit();
+                // --- 2. 处理并快照独立菜单项 ---
+                foreach ($cartLocked->menuItems as $cartMenuItem) {
+                    $addonsPrice = $cartMenuItem->addons->sum('addon_price');
+                    $variantsPrice = $cartMenuItem->variants->sum('variant_price');
+                    $singleItemPrice = ($cartMenuItem->promotion_price ?? $cartMenuItem->base_price) + $addonsPrice + $variantsPrice;
+                    $itemTotal = $singleItemPrice * $cartMenuItem->quantity;
 
+                    $orderMenuItem = $order->menuItems()->create([
+                        'menu_id' => $cartMenuItem->menu_id,
+                        'menu_name' => $cartMenuItem->menu_name,
+                        'menu_description' => $cartMenuItem->menu_description,
+                        'image_url' => $cartMenuItem->image_url,
+                        'category_name' => $cartMenuItem->category_name,
+                        'base_price' => $cartMenuItem->base_price,
+                        'promotion_price' => $cartMenuItem->promotion_price,
+                        'quantity' => $cartMenuItem->quantity,
+                        'item_total' => $itemTotal,
+                    ]);
+
+                    foreach ($cartMenuItem->addons as $addon) {
+                        $orderMenuItem->addons()->create($addon->only(['addon_id', 'addon_name', 'addon_price']));
+                    }
+
+                    foreach ($cartMenuItem->variants as $variant) {
+                        $orderMenuItem->variants()->create($variant->only(['variant_id', 'variant_name', 'variant_price']));
+                    }
+                }
+
+                // --- 3. 处理并快照套餐项 ---
+                foreach ($cartLocked->packageItems as $cartPackageItem) {
+                    $packageExtrasTotal = 0;
+                    foreach ($cartPackageItem->menus as $packageMenu) {
+                        $packageExtrasTotal += $packageMenu->addons->sum('addon_price');
+                        $packageExtrasTotal += $packageMenu->variants->sum('variant_price');
+                    }
+                    $singlePackagePrice = ($cartPackageItem->package_price ?? 0) + $packageExtrasTotal;
+                    $packageTotal = $singlePackagePrice * $cartPackageItem->quantity;
+
+                    $orderPackageItem = $order->packageItems()->create([
+                        'menu_package_id' => $cartPackageItem->menu_package_id,
+                        'package_name' => $cartPackageItem->package_name,
+                        'package_description' => $cartPackageItem->package_description,
+                        'package_price' => $cartPackageItem->package_price,
+                        'package_image' => $cartPackageItem->package_image,
+                        'category_name' => $cartPackageItem->category_name,
+                        'quantity' => $cartPackageItem->quantity,
+                        'item_total' => $packageTotal,
+                    ]);
+
+                    foreach ($cartPackageItem->menus as $packageMenu) {
+                        $orderPackageItemMenu = $orderPackageItem->menus()->create($packageMenu->only(['menu_id', 'menu_name', 'menu_description', 'base_price', 'promotion_price', 'quantity']));
+
+                        foreach ($packageMenu->addons as $addon) {
+                            $orderPackageItemMenu->addons()->create($addon->only(['addon_id', 'addon_name', 'addon_price']));
+                        }
+
+                        foreach ($packageMenu->variants as $variant) {
+                            $orderPackageItemMenu->variants()->create($variant->only(['variant_id', 'variant_name', 'variant_price']));
+                        }
+                    }
+                }
+
+                // --- 4. 清空购物车 ---
+                // $cartLocked->menuItems()->delete();
+                // $cartLocked->packageItems()->delete();
+
+                return $order;
+            });
+
+            // --- 事务成功，返回成功响应 ---
             return response()->json([
                 'message' => 'Order placed successfully!',
                 'order' => $order->load(['menuItems.addons', 'menuItems.variants', 'packageItems.menus.addons', 'packageItems.menus.variants'])
             ], 201);
 
         } catch (Throwable $e) {
-            DB::rollBack();
-            report($e);
+            // --- 事务失败，回滚并记录错误 ---
+            Log::error('Order creation failed: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json(['message' => 'Failed to place order. Please try again later.'], 500);
         }
     }
@@ -194,8 +185,6 @@ class OrderController extends Controller
     public function index()
     {
         $user = auth('api')->user();
-
-        // Eager load all necessary nested relationships for the order history page.
         $orders = Order::where('user_id', $user->id)
             ->with([
                 'menuItems.addons',
@@ -203,9 +192,8 @@ class OrderController extends Controller
                 'packageItems.menus.addons',
                 'packageItems.menus.variants'
             ])
-            ->latest() // Show the most recent orders first
+            ->latest()
             ->get();
-
         return response()->json($orders);
     }
 
@@ -215,20 +203,15 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         $user = auth('api')->user();
-
-        // Authorization check: ensure the user can only view their own order.
         if ($order->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
-        // Load the same relationships for a single order view.
         $order->load([
             'menuItems.addons',
             'menuItems.variants',
             'packageItems.menus.addons',
             'packageItems.menus.variants'
         ]);
-
         return response()->json($order);
     }
 }
