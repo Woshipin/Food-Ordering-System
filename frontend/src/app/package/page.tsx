@@ -16,6 +16,7 @@ import { useLanguage } from "../../components/LanguageProvider";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { fetchPackages } from "./lib/data"; // 从 lib/data.ts 导入数据获取函数
 import { PackageListItemType } from "./lib/types"; // 从 lib/definitions.ts 导入类型
+import { LoadingOverlay } from "../../components/LoadingOverlay"; // <--- 新增：导入统一的加载组件
 
 // Sub-components for better organization
 const MenuHeader = () => {
@@ -248,13 +249,6 @@ export default function PackagesPage() {
       [itemId]: Math.max((p[itemId] || 0) - 1, 0),
     }));
 
-  const totalCartItems = Object.values(cartItems).reduce(
-    (sum, count) => sum + count,
-    0
-  );
-
-  // Loading and Error states remain the same
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50">
       <MenuHeader />
@@ -286,14 +280,29 @@ export default function PackagesPage() {
             </div>
           </div>
 
+          {/* --- 修改开始 --- */}
           {loading && (
-            <div className="text-center py-12 text-gray-500">
-              {t("loading")}...
+            // 使用容器和最小高度来确保加载动画有足够的显示空间
+            <div className="">
+              <LoadingOverlay
+                description={
+                  t("loadingPackagesMessage") ||
+                  "Please wait while we load the packages..."
+                }
+              />
             </div>
           )}
+          {/* --- 修改结束 --- */}
+
           {error && (
-            <div className="text-center py-12 text-red-500">{error}</div>
+            <div className="text-center py-20 bg-red-50 rounded-2xl">
+              <p className="text-red-600 text-xl font-bold mb-4">{error}</p>
+              <Button onClick={loadData} variant="destructive">
+                {t("retry") || "Retry"}
+              </Button>
+            </div>
           )}
+
           {!loading && !error && (
             <>
               {packages.length > 0 ? (

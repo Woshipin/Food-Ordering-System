@@ -30,6 +30,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { toast, Toaster } from "sonner";
+import { LoadingOverlay } from "../../components/LoadingOverlay"; // <--- 新增：导入加载组件
 
 // --- 自定义Hooks和上下文 (Custom Hooks & Context) ---
 import { useLanguage } from "../../components/LanguageProvider";
@@ -51,6 +52,7 @@ export default function ContactPage() {
   // --- 状态管理 (State Management) ---
   // 存储从后端获取的“联系我们”页面的CMS数据
   const [contactData, setContactData] = useState<ContactData | null>(null);
+  const [cmsLoading, setCmsLoading] = useState(true); // <--- 新增：CMS内容加载状态
   // 表单的初始状态
   const initialFormData: FormData = { name: "", email: "", phone: "", subject: "", message: "" };
   // 存储当前表单数据
@@ -67,11 +69,14 @@ export default function ContactPage() {
    */
   useEffect(() => {
     const fetchContactData = async () => {
+        setCmsLoading(true); // <--- 修改：开始加载
         try {
             const response = await axios.get(`/cms/contact?lang=${language}`);
             setContactData(response.data);
         } catch (error) {
             console.error("获取联系我们页面数据失败:", error);
+        } finally {
+            setCmsLoading(false); // <--- 修改：结束加载
         }
     };
     fetchContactData();
@@ -187,7 +192,7 @@ export default function ContactPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Link href="/">
-                  <Button variant="ghost" size="icon" className="text-white hover:bg-black/10">
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-black">
                     <ArrowLeft className="h-5 w-5 text-white" />
                   </Button>
                 </Link>
@@ -199,116 +204,125 @@ export default function ContactPage() {
         </header>
 
         {/* ==================== 页面主体内容 (Main Content) ==================== */}
-        <main>
-          {/* --- 英雄区 (Hero Section) --- */}
-          <section className="bg-gradient-to-r from-orange-100/30 to-amber-100/30 text-black py-16 md:py-20">
-            <div className="container mx-auto px-4">
-              <div className="text-center">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">{contactData?.hero_title || t("contactUsHeroTitle")}</h2>
-                <p className="text-lg md:text-xl text-black max-w-3xl mx-auto leading-relaxed">
-                  {contactData?.hero_description || t("contactUsHeroDesc")}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <div className="container mx-auto px-4 py-8 md:py-12">
-            {/* --- 联系信息 (Contact Info Section) --- */}
-            <section className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-orange-100 mb-8">
-              <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 text-center">{contactData?.contact_info_title || t("contactInfo")}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {(contactData?.contact_info || []).map((info, index) => (
-                  <div key={index} className="flex items-start space-x-4 p-4 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors">
-                    <div className="bg-orange-500 p-3 rounded-full shadow-lg">
-                      {renderIcon(info.type)}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{info.title}</h4>
-                      <p className="text-gray-700 font-medium">{info.details}</p>
-                      <p className="text-sm text-gray-500">{info.description}</p>
+        {/* --- 新增：加载状态处理 --- */}
+        {cmsLoading ? (
+            <LoadingOverlay
+                isFullScreen={true}
+                title={t("Loading Content")}
+                description={t("Please wait while we fetch the details")}
+            />
+        ) : (
+            <main>
+                {/* --- 英雄区 (Hero Section) --- */}
+                <section className="bg-gradient-to-r from-orange-100/30 to-amber-100/30 text-black py-16 md:py-20">
+                  <div className="container mx-auto px-4">
+                    <div className="text-center">
+                      <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">{contactData?.hero_title || t("contactUsHeroTitle")}</h2>
+                      <p className="text-lg md:text-xl text-black max-w-3xl mx-auto leading-relaxed">
+                        {contactData?.hero_description || t("contactUsHeroDesc")}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
 
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* --- 地图位置 (Map Location Section) --- */}
-              <section className="bg-white rounded-2xl shadow-xl overflow-hidden border border-orange-100 flex flex-col">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                  <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.store_location_title || t("storeLocation")}</h3>
-                </div>
-                <div className="h-96 lg:flex-grow">
-                  <iframe
-                    src={extractMapSrc(contactData?.map_url)}
-                    className="w-full h-full border-0"
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-              </section>
+                <div className="container mx-auto px-4 py-8 md:py-12">
+                  {/* --- 联系信息 (Contact Info Section) --- */}
+                  <section className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-orange-100 mb-8">
+                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 text-center">{contactData?.contact_info_title || t("contactInfo")}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      {(contactData?.contact_info || []).map((info, index) => (
+                        <div key={index} className="flex items-start space-x-4 p-4 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors">
+                          <div className="bg-orange-500 p-3 rounded-full shadow-lg">
+                            {renderIcon(info.type)}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{info.title}</h4>
+                            <p className="text-gray-700 font-medium">{info.details}</p>
+                            <p className="text-sm text-gray-500">{info.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
 
-              {/* --- 在线留言 (Send Message Section) --- */}
-              <section className="bg-white rounded-2xl shadow-xl border border-orange-100">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                  <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.send_message_title || t("sendMessage")}</h3>
-                </div>
-                <div className="p-6 md:p-8">
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="name" className="text-gray-700 font-medium">{contactData?.form_name_label || t("fullName")}</Label>
-                        <Input id="name" name="name" value={formData.name} onChange={handleChange} placeholder={contactData?.form_name_placeholder || t("enterYourName")} required className={`mt-1 focus:ring-2 ${errors.name ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
-                        {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    {/* --- 地图位置 (Map Location Section) --- */}
+                    <section className="bg-white rounded-2xl shadow-xl overflow-hidden border border-orange-100 flex flex-col">
+                      <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+                        <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.store_location_title || t("storeLocation")}</h3>
                       </div>
-                      <div>
-                        <Label htmlFor="phone" className="text-gray-700 font-medium">{contactData?.form_phone_label || t("phoneNumber")}</Label>
-                        <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder={contactData?.form_phone_placeholder || t("enterPhoneNumber")} className="mt-1 border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200" />
+                      <div className="h-96 lg:flex-grow">
+                        <iframe
+                          src={extractMapSrc(contactData?.map_url)}
+                          className="w-full h-full border-0"
+                          allowFullScreen
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
                       </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email" className="text-gray-700 font-medium">{contactData?.form_email_label || t("emailAddressLabel")}</Label>
-                      <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={contactData?.form_email_placeholder || t("enterEmailAddress")} required className={`mt-1 focus:ring-2 ${errors.email ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
-                      {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="subject" className="text-gray-700 font-medium">{contactData?.form_subject_label || t("subject")}</Label>
-                      <Input id="subject" name="subject" value={formData.subject} onChange={handleChange} placeholder={contactData?.form_subject_placeholder || t("enterMessageSubject")} required className={`mt-1 focus:ring-2 ${errors.subject ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
-                      {errors.subject && <p className="text-red-500 text-sm mt-1">{errors.subject}</p>}
-                    </div>
-                    <div>
-                      <Label htmlFor="message" className="text-gray-700 font-medium">{contactData?.form_message_label || t("messageContent")}</Label>
-                      <Textarea id="message" name="message" value={formData.message} onChange={handleChange} placeholder={contactData?.form_message_placeholder || t("describeYourIssue")} rows={6} required className={`mt-1 focus:ring-2 ${errors.message ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
-                      {errors.message && <p className="text-red-500 text-sm mt-1">{errors.message}</p>}
-                    </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-lg py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200" disabled={isLoading}>
-                      <Send className="mr-2 h-5 w-5" />
-                      {isLoading ? t("sending") : (contactData?.form_submit_button || t("sendMessageButton"))}
-                    </Button>
-                  </form>
-                </div>
-              </section>
-            </div>
+                    </section>
 
-            {/* --- 常见问题 (FAQ Section) --- */}
-            <section className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-xl border border-gray-200 mt-8">
-              <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
-                <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.faq_title || t("faq")}</h3>
-              </div>
-              <div className="p-6 md:p-8">
-                <div className="grid md:grid-cols-2 gap-6">
-                  {(contactData?.faqs || []).map((faq, index) => (
-                      <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
-                          <h4 className="font-semibold text-gray-900 mb-2">{faq.question}</h4>
-                          <p className="text-gray-600 text-sm">{faq.answer}</p>
+                    {/* --- 在线留言 (Send Message Section) --- */}
+                    <section className="bg-white rounded-2xl shadow-xl border border-orange-100">
+                      <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+                        <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.send_message_title || t("sendMessage")}</h3>
                       </div>
-                  ))}
+                      <div className="p-6 md:p-8">
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="name" className="text-gray-700 font-medium">{contactData?.form_name_label || t("fullName")}</Label>
+                              <Input id="name" name="name" value={formData.name} onChange={handleChange} placeholder={contactData?.form_name_placeholder || t("enterYourName")} required className={`mt-1 focus:ring-2 ${errors.name ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
+                              {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                            </div>
+                            <div>
+                              <Label htmlFor="phone" className="text-gray-700 font-medium">{contactData?.form_phone_label || t("phoneNumber")}</Label>
+                              <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder={contactData?.form_phone_placeholder || t("enterPhoneNumber")} className="mt-1 border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="email" className="text-gray-700 font-medium">{contactData?.form_email_label || t("emailAddressLabel")}</Label>
+                            <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder={contactData?.form_email_placeholder || t("enterEmailAddress")} required className={`mt-1 focus:ring-2 ${errors.email ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
+                            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                          </div>
+                          <div>
+                            <Label htmlFor="subject" className="text-gray-700 font-medium">{contactData?.form_subject_label || t("subject")}</Label>
+                            <Input id="subject" name="subject" value={formData.subject} onChange={handleChange} placeholder={contactData?.form_subject_placeholder || t("enterMessageSubject")} required className={`mt-1 focus:ring-2 ${errors.subject ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
+                            {errors.subject && <p className="text-red-500 text-sm mt-1">{errors.subject}</p>}
+                          </div>
+                          <div>
+                            <Label htmlFor="message" className="text-gray-700 font-medium">{contactData?.form_message_label || t("messageContent")}</Label>
+                            <Textarea id="message" name="message" value={formData.message} onChange={handleChange} placeholder={contactData?.form_message_placeholder || t("describeYourIssue")} rows={6} required className={`mt-1 focus:ring-2 ${errors.message ? "border-red-500 focus:border-red-500 focus:ring-red-200" : "border-orange-200 focus:border-orange-500 focus:ring-orange-200"}`} />
+                            {errors.message && <p className="text-red-500 text-sm mt-1">{errors.message}</p>}
+                          </div>
+                          <Button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-lg py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200" disabled={isLoading}>
+                            <Send className="mr-2 h-5 w-5" />
+                            {isLoading ? t("sending") : (contactData?.form_submit_button || t("sendMessageButton"))}
+                          </Button>
+                        </form>
+                      </div>
+                    </section>
+                  </div>
+
+                  {/* --- 常见问题 (FAQ Section) --- */}
+                  <section className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-xl border border-gray-200 mt-8">
+                    <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
+                      <h3 className="text-xl md:text-2xl font-bold text-white text-center">{contactData?.faq_title || t("faq")}</h3>
+                    </div>
+                    <div className="p-6 md:p-8">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {(contactData?.faqs || []).map((faq, index) => (
+                            <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
+                                <h4 className="font-semibold text-gray-900 mb-2">{faq.question}</h4>
+                                <p className="text-gray-600 text-sm">{faq.answer}</p>
+                            </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
                 </div>
-              </div>
-            </section>
-          </div>
-        </main>
+            </main>
+        )}
       </div>
       {/* `Toaster` 用于显示 `toast` 消息 */}
       <Toaster />

@@ -26,6 +26,7 @@ import Image from "next/image";
 import { ArrowLeft, X, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
+import { LoadingOverlay } from "../../components/LoadingOverlay"; // <--- 新增：导入加载组件
 
 // --- 自定义Hooks和上下文 (Custom Hooks & Context) ---
 import { useLanguage } from "../../components/LanguageProvider";
@@ -91,7 +92,7 @@ export default function GalleryPage() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // 初始加载完成前不执行此effect
     const fetchImagesByCategory = async () => {
       setImagesLoading(true);
       try {
@@ -109,7 +110,7 @@ export default function GalleryPage() {
       }
     };
     fetchImagesByCategory();
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, loading]); // 添加 loading 依赖
 
   // --- 渲染逻辑与辅助函数 (Render Logic & Helpers) ---
   const getCategoryName = (id: number | null) => {
@@ -125,7 +126,18 @@ export default function GalleryPage() {
     setSelectedCategoryId(categoryId);
     setIsFilterAreaOpen(false);
   };
-
+  
+  // --- 修改开始：处理初始加载状态 ---
+  if (loading) {
+    return (
+      <LoadingOverlay
+        isFullScreen={true}
+        title={t("Loading Gallery")}
+        description={t("Please wait while we fetch the images")}
+      />
+    );
+  }
+  // --- 修改结束 ---
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
@@ -135,7 +147,7 @@ export default function GalleryPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/">
-                <Button variant="ghost" size="icon" className="text-white hover:bg-black/10">
+                <Button variant="ghost" size="icon" className="text-white hover:bg-black">
                   <ArrowLeft className="h-5 w-5 text-white" />
                 </Button>
               </Link>
@@ -199,67 +211,61 @@ export default function GalleryPage() {
 
       {/* ==================== 画廊主体 (Gallery Section) ==================== */}
       <div className="container mx-auto px-4 py-12">
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
-          </div>
-        ) : (
-          <div className="relative">
-            {imagesLoading && (
-              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex justify-center items-center z-10 rounded-2xl">
-                <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {galleryImages.map((image) => (
-                <div
-                  key={image.id}
-                  className="group cursor-pointer"
-                  onClick={() => setSelectedImage(image.src)}
-                >
-                  <div className="relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <Image
-                        src={image.src || "/placeholder.svg"}
-                        alt={image.alt}
-                        fill
-                        className="object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-400/20 to-transparent rounded-bl-2xl" />
-                    </div>
-                    <div className="p-5">
-                      <div className="flex items-baseline justify-between gap-2 mb-2">
-                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-orange-600 transition-colors duration-300 truncate">
-                          {image.title}
-                        </h3>
-                        <span className="flex-shrink-0 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
-                          {getCategoryNameById(image.categoryId) || "No Category"}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
-                        {image.description}
-                      </p>
-                    </div>
-                    <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-200 transition-all duration-300" />
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-amber-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                  </div>
-                </div>
-              ))}
+        <div className="relative">
+          {imagesLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex justify-center items-center z-10 rounded-2xl">
+              <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
             </div>
-
-            {!imagesLoading && galleryImages.length === 0 && (
-              <div className="text-center py-20">
-                <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-12 max-w-md mx-auto shadow-lg">
-                  <div className="text-orange-400 text-2xl mb-4">🍽️</div>
-                  <div className="text-gray-600 text-lg mb-2 font-medium">{t("noImages")}</div>
-                  <p className="text-gray-500">{t("noImagesDesc")}</p>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {galleryImages.map((image) => (
+              <div
+                key={image.id}
+                className="group cursor-pointer"
+                onClick={() => setSelectedImage(image.src)}
+              >
+                <div className="relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+                  <div className="relative aspect-[4/3] overflow-hidden">
+                    <Image
+                      src={image.src || "/placeholder.svg"}
+                      alt={image.alt}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-400/20 to-transparent rounded-bl-2xl" />
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-baseline justify-between gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-gray-800 group-hover:text-orange-600 transition-colors duration-300 truncate">
+                        {image.title}
+                      </h3>
+                      <span className="flex-shrink-0 bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
+                        {getCategoryNameById(image.categoryId) || "No Category"}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
+                      {image.description}
+                    </p>
+                  </div>
+                  <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-200 transition-all duration-300" />
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-amber-400 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        )}
+
+          {!imagesLoading && galleryImages.length === 0 && (
+            <div className="text-center py-20">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-12 max-w-md mx-auto shadow-lg">
+                <div className="text-orange-400 text-2xl mb-4">🍽️</div>
+                <div className="text-gray-600 text-lg mb-2 font-medium">{t("noImages")}</div>
+                <p className="text-gray-500">{t("noImagesDesc")}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ==================== 图片放大弹窗 (Image Modal) ==================== */}

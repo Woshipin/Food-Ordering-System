@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,19 +31,75 @@ import { Toaster, toast } from "sonner";
 import axios from "../../../lib/axios";
 import { RegisterFormState, RegisterValidationErrors } from "./lib/types";
 
+// =====================================================================================
+// 加载覆盖层组件 (Loading Overlay Component)
+// =====================================================================================
+interface LoadingOverlayProps {
+  title?: string;
+  description?: string;
+  isFullScreen?: boolean;
+}
+
+const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
+  title,
+  description,
+  isFullScreen = false,
+}) => {
+  const { t } = useLanguage();
+
+  const loadingContent = (
+    <div className="text-center bg-white px-16 py-8 md:px-20 md:py-10 rounded-3xl shadow-2xl border border-orange-200 w-full max-w-md md:max-w-lg mx-4">
+      <div className="relative inline-block">
+        <Loader2 className="h-16 w-16 animate-spin text-orange-500" />
+        <div className="absolute inset-0 h-16 w-16 border-4 border-orange-200 rounded-full mx-auto animate-pulse"></div>
+      </div>
+      <h3 className="mt-6 text-xl font-semibold text-gray-800">
+        {title || t("Loading") || "Loading"}
+      </h3>
+      <p className="mt-2 text-gray-600">
+        {description ||
+          t("loadingMenuMessage") ||
+          "Please wait while we load the content..."}
+      </p>
+      <div className="mt-4 flex justify-center space-x-1">
+        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+        <div
+          className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
+          style={{ animationDelay: "0.1s" }}
+        ></div>
+        <div
+          className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
+          style={{ animationDelay: "0.2s" }}
+        ></div>
+      </div>
+    </div>
+  );
+
+  if (isFullScreen) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-orange-50/80 backdrop-blur-sm">
+        {loadingContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-[300px] py-10">
+      {loadingContent}
+    </div>
+  );
+};
+
+// =====================================================================================
+// 注册页面主组件 (Register Page Main Component)
+// =====================================================================================
 export default function RegisterPage() {
-  // 使用语言切换钩子
   const { t } = useLanguage();
   const router = useRouter();
-  // 使用认证钩子
   const { login } = useAuth();
-  // 控制密码是否可见的状态
   const [showPassword, setShowPassword] = useState(false);
-  // 控制确认密码是否可见的状态
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  // 控制加载状态
   const [isLoading, setIsLoading] = useState(false);
-  // 表单数据状态
   const [formData, setFormData] = useState<RegisterFormState>({
     name: "",
     email: "",
@@ -56,73 +111,68 @@ export default function RegisterPage() {
   });
   const [errors, setErrors] = useState<RegisterValidationErrors>({});
 
-  // 处理表单提交
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // 阻止表单默认提交行为
-    // 检查两次输入的密码是否一致
+    e.preventDefault();
     if (formData.password !== formData.password_confirmation) {
       toast.error(t("passwordsDoNotMatch"));
       return;
     }
-    setIsLoading(true); // 开始加载
-    setErrors({}); // 清除之前的错误
+    setIsLoading(true);
+    setErrors({});
 
     try {
-      // 发送注册请求到后端 /api/auth/register
       const response = await axios.post("/auth/register", formData);
-      const { access_token } = response.data; // 从响应中获取 access_token
+      const { access_token } = response.data;
 
-      // 注册成功后，使用获取到的 token 去获取用户信息
       const userResponse = await axios.get("/auth/me", {
         headers: {
-          Authorization: `Bearer ${access_token}`, // 在请求头中附带 token
+          Authorization: `Bearer ${access_token}`,
         },
       });
 
-      // 显示成功提示
       toast.success(t("registrationSuccess"));
-      // 调用 AuthContext 中的 login 方法，保存用户信息和 token
       login(userResponse.data, access_token);
 
-      // 2秒后重定向到首页
       setTimeout(() => {
         router.push("/");
       }, 2000);
     } catch (error: any) {
-      // 处理注册失败的情况
       if (error.response && error.response.data && error.response.data.errors) {
-        // 如果后端返回了验证错误
         setErrors(error.response.data.errors);
       } else if (
         error.response &&
         error.response.data &&
         error.response.data.message
       ) {
-        // 如果后端返回了其他错误信息
         toast.error(error.response.data.message);
       } else {
-        // 显示通用的注册失败信息
         toast.error(t("registrationFailed"));
       }
-    } finally {
-      setIsLoading(false); // 结束加载
+      // 注册失败后也要停止加载
+      setIsLoading(false);
     }
   };
 
-  // 处理表单输入变化
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value, // 根据输入类型更新表单数据
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   return (
     <>
+      {/* **关键改动 1：添加 LoadingOverlay** */}
+      {isLoading && (
+        <LoadingOverlay
+          isFullScreen={true}
+          title={t("creatingAccount") || "正在创建账户"}
+          description={t("pleaseWaitRegistration") || "请稍候，我们正在为您完成注册..."}
+        />
+      )}
       <Toaster richColors position="top-center" />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-orange-100 relative overflow-hidden">
-        {/* Background decorative elements */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-0 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
           <div className="absolute top-0 right-0 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-2000"></div>
@@ -159,7 +209,6 @@ export default function RegisterPage() {
               </CardHeader>
 
               <CardContent className="p-6 sm:p-8">
-                {/* Personal Information Section */}
                 <div className="bg-blue-50 rounded-2xl p-6 mb-6 border border-blue-100">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                     <User className="h-5 w-5 mr-2 text-blue-500" />
@@ -249,7 +298,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {/* Password Section */}
                 <div className="bg-green-50 rounded-2xl p-6 mb-6 border border-green-100">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                     <Lock className="h-5 w-5 mr-2 text-green-500" />
@@ -342,7 +390,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {/* Terms and Register Section */}
                 <div className="bg-gray-50 rounded-2xl p-6 mb-6 border border-gray-100">
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2">
@@ -367,22 +414,18 @@ export default function RegisterPage() {
                       </Label>
                     </div>
 
+                    {/* **关键改动 2：移除按钮内的加载动画** */}
                     <Button
                       type="submit"
                       onClick={handleSubmit}
                       className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-lg py-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                       disabled={!formData.agreeToTerms || isLoading}
                     >
-                      {isLoading ? (
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                      ) : (
-                        t("registerButton")
-                      )}
+                      {t("registerButton")}
                     </Button>
                   </div>
                 </div>
 
-                {/* Login Link Section */}
                 <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
                   <div className="text-center">
                     <p className="text-gray-600">

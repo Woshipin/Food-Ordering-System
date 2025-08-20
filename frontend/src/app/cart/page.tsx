@@ -40,6 +40,7 @@ import Step1 from './steps/Step1';
 import Step2 from './steps/Step2';
 import Step3 from './steps/Step3';
 import Step4 from './steps/Step4';
+import { LoadingOverlay } from "../../components/LoadingOverlay"; // <--- 新增：导入加载组件
 
 export default function CartPage() {
   const { t, language } = useLanguage();
@@ -100,7 +101,6 @@ export default function CartPage() {
             }
         }
 
-        // --- FIX: Correctly find and set store location from the contact_info array ---
         const cmsData = contactCmsResponse.data;
         if (cmsData && Array.isArray(cmsData.contact_info)) {
             const locationInfo = cmsData.contact_info.find(
@@ -108,8 +108,8 @@ export default function CartPage() {
             );
             if (locationInfo) {
               setStoreLocation({
-                latitude: parseFloat(locationInfo.latitude),   // Convert string to number
-                longitude: parseFloat(locationInfo.longitude), // Convert string to number
+                latitude: parseFloat(locationInfo.latitude),
+                longitude: parseFloat(locationInfo.longitude),
               });
             }
         }
@@ -157,13 +157,12 @@ export default function CartPage() {
       
       const selectedAddress = addresses.find(addr => addr.id === deliveryAddress);
   
-      // --- FIX: Ensure coordinates are numbers before calculation ---
       if (selectedAddress && selectedAddress.latitude && selectedAddress.longitude && storeLocation.latitude && storeLocation.longitude) {
         const distance = calculateDistance(
-          storeLocation.latitude,                 // Already a number from state
-          storeLocation.longitude,                // Already a number from state
-          parseFloat(selectedAddress.latitude),   // Convert string from address data to number
-          parseFloat(selectedAddress.longitude)  // Convert string from address data to number
+          storeLocation.latitude,
+          storeLocation.longitude,
+          parseFloat(selectedAddress.latitude),
+          parseFloat(selectedAddress.longitude)
         );
   
         const PER_KM_RATE = 1.00;
@@ -177,10 +176,8 @@ export default function CartPage() {
         setDeliveryDistance(0);
       }
   
-      // Use a short timeout to prevent UI flicker if calculation is too fast
       setTimeout(() => setIsCalculatingFee(false), 300);
     } else {
-      // If data is not ready yet, just mark as calculating
       setIsCalculatingFee(true);
     }
   }, [serviceType, deliveryAddress, storeLocation, addresses, serviceMethods]);
@@ -251,14 +248,18 @@ export default function CartPage() {
       setIsPlacingOrder(false);
     }
   };
-
+  
+  // --- 修改开始：替换初始加载UI ---
   if (isLoading || authIsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <Loader2 className="h-16 w-16 animate-spin text-orange-500" />
-      </div>
+      <LoadingOverlay
+        isFullScreen={true}
+        title={t("Loading Cart")}
+        description={t("Please wait while we fetch your cart details")}
+      />
     );
   }
+  // --- 修改结束 ---
 
   if (error) {
     return (
@@ -339,7 +340,7 @@ export default function CartPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-white/10 rounded-xl"
+                className="text-white hover:bg-black"
                 onClick={handleBack}
               >
                 <ArrowLeft className="h-5 w-5 text-white" />

@@ -23,6 +23,7 @@ import axios from "../../../lib/axios";
 import { toast } from "sonner";
 import { fetchPackageById } from "../lib/data"; // 从 lib/data.ts 导入数据获取函数
 import { PackageDetailType, PackageMenuType } from "../lib/types"; // 从 lib/definitions.ts 导入类型
+import { LoadingOverlay } from "../../../components/LoadingOverlay"; // <--- 新增：导入统一的加载组件
 
 // --- Main Component ---
 export default function PackageDetailPage() {
@@ -85,42 +86,31 @@ export default function PackageDetailPage() {
     });
   };
 
-  // --- 修正: 增加更安全的数字转换和校验以防止 NaN ---
   const calculateTotalPrice = useCallback(() => {
     if (!packageItem) return 0;
 
-    // 安全地获取促销价和基础价，如果无效则默认为 0
     const promoPrice = parseFloat(String(packageItem.promotion_price)) || 0;
     const basePrice = parseFloat(String(packageItem.base_price)) || 0;
 
-    // 确定套餐的基础价格
     const basePackagePrice = promoPrice > 0 ? promoPrice : basePrice;
 
-    // 计算选项的总价
     let optionsTotal = 0;
     packageItem.menus.forEach((menu) => {
-      // 计算所选 variant 的价格
       const variantId = selectedVariants[menu.id];
       if (variantId) {
         const variant = menu.variants.find((v) => v.id === variantId);
         if (variant) {
-          // 安全地转换 price_modifier
           optionsTotal += parseFloat(String(variant.price_modifier)) || 0;
         }
       }
 
-      // 计算所选 addon 的价格
       const addonDetails = selectedAddons[menu.id] || [];
       addonDetails.forEach((addon) => {
-        // 安全地转换 price
         optionsTotal += parseFloat(String(addon.price)) || 0;
       });
     });
 
-    // 计算最终总价
     const total = (basePackagePrice + optionsTotal) * quantity;
-
-    // 返回最终结果，如果结果是 NaN (不太可能发生，但作为最后一道防线)，则返回 0
     return isNaN(total) ? 0 : total;
   }, [packageItem, selectedVariants, selectedAddons, quantity]);
 
@@ -176,36 +166,21 @@ export default function PackageDetailPage() {
     }
   };
 
+  // --- 修改开始 ---
   if (loading) {
+    // 使用全屏的 LoadingOverlay 来提供更沉浸式的加载体验
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex flex-col items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md w-full border border-orange-100">
-          <div className="relative">
-            <Loader2 className="h-16 w-16 animate-spin text-orange-500 mx-auto mb-6" />
-            <div className="absolute inset-0 h-16 w-16 mx-auto rounded-full bg-orange-100 opacity-20 animate-pulse"></div>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            {t("Loading Package") || "Loading Package..."}
-          </h2>
-          <p className="text-gray-600">
-            {t("Loading Message") ||
-              "Please wait while we prepare your delicious package details"}
-          </p>
-          <div className="mt-6 flex justify-center space-x-2">
-            <div className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"></div>
-            <div
-              className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.1s" }}
-            ></div>
-            <div
-              className="h-2 w-2 bg-orange-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.2s" }}
-            ></div>
-          </div>
-        </div>
-      </div>
+      <LoadingOverlay
+        isFullScreen={true}
+        title={t("Loading Package") || "Loading Package..."}
+        description={
+          t("Loading Message") ||
+          "Please wait while we prepare your delicious package details"
+        }
+      />
     );
   }
+  // --- 修改结束 ---
 
   if (error) {
     return (
@@ -244,7 +219,7 @@ export default function PackageDetailPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-white hover:bg-white/20 rounded-xl transition-all duration-300 cursor-pointer hover:scale-110"
+                  className="text-white hover:bg-black"
                 >
                   <ArrowLeft className="h-5 w-5 text-white" />
                 </Button>
@@ -414,7 +389,7 @@ export default function PackageDetailPage() {
                                 onChange={() =>
                                   handleAddonToggle(menu.id, addon)
                                 }
-                                className="form-checkbox h-5 w-5 rounded border-2 cursor-pointer transition-all duration-200 text-orange-500 focus:ring-orange-500 ${selectedAddons[menu.id]?.some(a => a.id === addon.id) ? 'border-orange-500' : 'border-gray-300'}"
+                                className="form-checkbox h-5 w-5 rounded border-2 cursor-pointer transition-all duration-200 text-orange-500 focus:ring-orange-500"
                               />
                               <span className="font-medium text-gray-800 ml-3 flex-1">
                                 {addon.name}

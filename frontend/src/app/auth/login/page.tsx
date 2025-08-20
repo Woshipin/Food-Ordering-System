@@ -30,99 +30,154 @@ import { Toaster, toast } from "sonner";
 import axios from "../../../lib/axios";
 import { LoginFormState, LoginValidationErrors } from "./lib/types";
 
+// =====================================================================================
+// 加载覆盖层组件 (Loading Overlay Component)
+// =====================================================================================
+interface LoadingOverlayProps {
+  title?: string;
+  description?: string;
+  isFullScreen?: boolean;
+}
+
+const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
+  title,
+  description,
+  isFullScreen = false,
+}) => {
+  const { t } = useLanguage();
+
+  const loadingContent = (
+    <div className="text-center bg-white px-16 py-8 md:px-20 md:py-10 rounded-3xl shadow-2xl border border-orange-200 w-full max-w-md md:max-w-lg mx-4">
+      <div className="relative inline-block">
+        <Loader2 className="h-16 w-16 animate-spin text-orange-500" />
+        <div className="absolute inset-0 h-16 w-16 border-4 border-orange-200 rounded-full mx-auto animate-pulse"></div>
+      </div>
+      <h3 className="mt-6 text-xl font-semibold text-gray-800">
+        {title || t("Loading") || "Loading"}
+      </h3>
+      <p className="mt-2 text-gray-600">
+        {description ||
+          t("loadingMenuMessage") ||
+          "Please wait while we load the content..."}
+      </p>
+      <div className="mt-4 flex justify-center space-x-1">
+        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+        <div
+          className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
+          style={{ animationDelay: "0.1s" }}
+        ></div>
+        <div
+          className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
+          style={{ animationDelay: "0.2s" }}
+        ></div>
+      </div>
+    </div>
+  );
+
+  if (isFullScreen) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-orange-50/80 backdrop-blur-sm">
+        {loadingContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center min-h-[300px] py-10">
+      {loadingContent}
+    </div>
+  );
+};
+
+
+// =====================================================================================
+// 登录页面主组件 (Login Page Main Component)
+// =====================================================================================
 export default function LoginPage() {
-  // 使用语言切换钩子
   const { t } = useLanguage();
   const router = useRouter();
-  // 使用认证钩子
   const { login } = useAuth();
-  // 控制密码是否可见的状态
   const [showPassword, setShowPassword] = useState(false);
-  // 控制加载状态
   const [isLoading, setIsLoading] = useState(false);
-  // 表单数据状态
   const [formData, setFormData] = useState<LoginFormState>({
     email: "aaa@gmail.com",
     password: "123456",
     rememberMe: false,
   });
   const [errors, setErrors] = useState<LoginValidationErrors>({});
- 
-   // 使用 useEffect 在组件加载时清空表单字段
-   useEffect(() => {
-     setFormData((prev) => ({
-       ...prev,
-       email: "",
-       password: "",
-     }));
-   }, []); // 空依赖数组确保只在组件首次加载时运行
- 
-   // 处理表单提交
-   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // 阻止表单默认提交行为
-    setIsLoading(true); // 开始加载
-    setErrors({}); // 清除之前的错误
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      email: "",
+      password: "",
+    }));
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrors({});
 
     try {
-      // 发送登录请求到后端 /api/auth/login
       const response = await axios.post("/auth/login", {
         email: formData.email,
         password: formData.password,
       });
-      const { access_token } = response.data; // 从响应中获取 access_token
+      const { access_token } = response.data;
 
-      // 登录成功后，使用获取到的 token 去获取用户信息
       const userResponse = await axios.get("/auth/me", {
         headers: {
-          Authorization: `Bearer ${access_token}`, // 在请求头中附带 token
+          Authorization: `Bearer ${access_token}`,
         },
       });
 
-      // 显示成功提示
       toast.success(t("loginSuccess"));
-      // 调用 AuthContext 中的 login 方法，保存用户信息和 token
       login(userResponse.data, access_token);
       
-      // 2秒后重定向到首页
       setTimeout(() => {
         router.push("/");
       }, 2000);
     } catch (error: any) {
-      // 处理登录失败的情况
       if (
         error.response &&
         error.response.data &&
         error.response.data.message
       ) {
-        // 如果后端返回了具体的错误信息，则显示它
         if (error.response.data.errors) {
           setErrors(error.response.data.errors);
         } else {
           toast.error(error.response.data.message);
         }
       } else {
-        // 否则显示通用的登录失败信息
         toast.error(t("loginFailed"));
       }
-    } finally {
-      setIsLoading(false); // 结束加载
-    }
+      // 登录失败后也要停止加载
+      setIsLoading(false);
+    } 
+    // 注意：成功时，因为有重定向，所以可以不设置setIsLoading(false)，但为了代码健壮性，在失败时必须设置
   };
 
-  // 处理表单输入变化
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value, // 根据输入类型更新表单数据
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   return (
     <>
+      {/* **关键改动 1：添加 LoadingOverlay** */}
+      {isLoading && (
+        <LoadingOverlay 
+          isFullScreen={true} 
+          title={t("loggingIn") || "正在登录"}
+          description={t("verifyingCredentials") || "正在验证您的信息，请稍候..."}
+        />
+      )}
       <Toaster richColors position="top-center" />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-orange-100 relative overflow-hidden">
-        {/* 背景装饰元素 */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-0 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
           <div className="absolute top-0 right-0 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-2000"></div>
@@ -259,16 +314,13 @@ export default function LoginPage() {
                       </Link>
                     </div>
 
+                    {/* **关键改动 2：移除按钮内的加载动画** */}
                     <Button
                       type="submit"
                       className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50"
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                      ) : (
-                        t("loginButton")
-                      )}
+                      {t("loginButton")}
                     </Button>
                   </form>
                 </div>
