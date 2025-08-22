@@ -87,3 +87,13 @@ export interface Address {
     latitude: string;        // 纬度
     longitude: string;       // 经度
 }
+
+// 定义了桌位的结构
+export interface Table {
+  id: number;
+  name: string;
+  description: string;
+  capacity: number;
+  location: string;
+  status: string;
+}

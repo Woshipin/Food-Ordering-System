@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             AboutUsCmsSeeder::class,
             ContactCmsSeeder::class,
             AddressSeeder::class,
+            TableSeeder::class,
         ]);
     }
 }

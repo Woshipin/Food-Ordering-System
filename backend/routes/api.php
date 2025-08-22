@@ -34,6 +34,7 @@ use App\Http\Controllers\CMSControlled;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\TableController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -97,6 +98,8 @@ Route::middleware('api')->group(function () {
 
         // --- 分类 (Categories) ---
         Route::get('/categories', [CategoryController::class, 'index']); // 获取所有菜品分类
+
+        Route::get('/tables', [TableController::class, 'index']); // 获取所有餐桌信息
 
         // --- 菜单 (Menus) ---
         // URL前缀: /api/menus

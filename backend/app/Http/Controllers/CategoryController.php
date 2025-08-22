@@ -7,13 +7,6 @@ use Illuminate\Http\JsonResponse;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the categories.
-     *
-     * GET /api/categories
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function index(): JsonResponse
     {
         // Retrieve all categories without pagination

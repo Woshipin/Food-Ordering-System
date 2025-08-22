@@ -30,6 +30,7 @@ import {
     ServiceMethod,
     PaymentMethod,
     Address,
+    Table,
 } from "./lib/lib";
 import {
     calculateDistance,
@@ -63,6 +64,9 @@ export default function CartPage() {
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [tables, setTables] = useState<Table[]>([]);
+  const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [isFetchingTables, setIsFetchingTables] = useState(false);
 
   const [promoCode, setPromoCode] = useState("");
   const discount = promoCode === "SAVE10" ? 0.1 : 0;
@@ -76,11 +80,12 @@ export default function CartPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [cartResponse, optionsResponse, addressResponse, contactCmsResponse] = await Promise.all([
+        const [cartResponse, optionsResponse, addressResponse, contactCmsResponse, tablesResponse] = await Promise.all([
             axios.get("/cart"),
             axios.get("/checkout-options"),
             axios.get("/address"),
-            axios.get(`/cms/contact?lang=${language}`)
+            axios.get(`/cms/contact?lang=${language}`),
+            axios.get("/tables"),
         ]);
 
         if (cartResponse.data && cartResponse.data.cart) {
@@ -123,6 +128,10 @@ export default function CartPage() {
             } else if (userAddresses.length > 0) {
                 setDeliveryAddress(userAddresses[0].id);
             }
+        }
+
+        if (tablesResponse.data) {
+            setTables(tablesResponse.data);
         }
 
       } catch (err: any) {
@@ -204,6 +213,9 @@ export default function CartPage() {
     if (currentStep === 2) {
         if (serviceType === 'delivery') {
             return deliveryAddress && !isCalculatingFee;
+        }
+        if (serviceType === 'dine-in') {
+            return !!selectedTable;
         }
         return !!serviceType;
     }
@@ -290,6 +302,9 @@ export default function CartPage() {
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
             addresses={addresses}
+            tables={tables}
+            selectedTable={selectedTable}
+            setSelectedTable={setSelectedTable}
           />
         );
       case 3:

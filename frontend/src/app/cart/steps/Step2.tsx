@@ -6,7 +6,7 @@ import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
 import { Badge } from "../../../components/ui/badge";
-import { ServiceMethod, Address } from '../lib/lib';
+import { ServiceMethod, Address, Table } from '../lib/lib';
 import { Icon } from '../function/cartfunction';
 
 interface Step2Props {
@@ -23,6 +23,9 @@ interface Step2Props {
   deliveryAddress: number | null;
   setDeliveryAddress: (value: number | null) => void;
   addresses: Address[];
+  tables: Table[];
+  selectedTable: number | null;
+  setSelectedTable: (value: number | null) => void;
 }
 
 const ServiceSelection: React.FC<Step2Props> = ({
@@ -38,11 +41,17 @@ const ServiceSelection: React.FC<Step2Props> = ({
   setSpecialInstructions,
   deliveryAddress,
   setDeliveryAddress,
-  addresses
-}) => (
-  <div className="space-y-8">
-    <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
+  addresses,
+  tables,
+  selectedTable,
+  setSelectedTable
+}) => {
+  const dineInMethod = serviceMethods.find(method => method.display_name.toLowerCase().includes('dine in'));
+
+  return (
+    <div className="space-y-8">
+      <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
         <CardTitle className="flex items-center text-xl">
           <Icon name="Car" className="mr-3 h-6 w-6" />
           Choose Your Service
@@ -102,6 +111,46 @@ const ServiceSelection: React.FC<Step2Props> = ({
       </CardContent>
     </Card>
 
+    {dineInMethod && serviceType === dineInMethod.name && (
+      <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
+          <CardTitle className="flex items-center text-xl">
+            <Icon name="Table" className="mr-3 h-6 w-6" />
+            Select Your Table
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 md:p-8">
+          <RadioGroup
+            value={selectedTable?.toString()}
+            onValueChange={(value) => setSelectedTable(Number(value))}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {tables.map((table) => (
+              <Label
+                key={table.id}
+                htmlFor={`table-${table.id}`}
+                className={`flex items-start space-x-4 p-4 rounded-xl border-2 cursor-pointer transition-all bg-white shadow-sm h-full ${
+                  selectedTable === table.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <RadioGroupItem value={table.id.toString()} id={`table-${table.id}`} className="mt-1" />
+                <div className="flex-1">
+                  <div className="font-semibold flex items-center">
+                    {table.name}
+                    <Badge className="ml-2 bg-blue-100 text-blue-800">{table.location}</Badge>
+                  </div>
+                  <p className="text-sm text-gray-600">{table.description}</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Capacity: <strong>{table.capacity}</strong> people
+                  </p>
+                </div>
+              </Label>
+            ))}
+          </RadioGroup>
+        </CardContent>
+      </Card>
+    )}
+
     {serviceType === 'delivery' && (
       <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-orange-400 to-red-500 text-white">
@@ -144,6 +193,7 @@ const ServiceSelection: React.FC<Step2Props> = ({
       </Card>
     )}
   </div>
-);
+  );
+};
 
 export default ServiceSelection;
