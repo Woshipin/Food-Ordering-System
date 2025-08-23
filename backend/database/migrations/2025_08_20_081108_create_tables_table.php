@@ -13,12 +13,17 @@ return new class extends Migration
     {
         Schema::create('tables', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 50); // 餐桌名称，例如 Table A1
-            $table->string('description', 100)->nullable();
-            $table->integer('capacity'); // 可容纳人数
-            $table->string('location', 100)->nullable(); 
-            $table->boolean('is_available')->default(true); // 是否可用
+            $table->string('table_code', 50)->unique();
+            $table->text('description')->nullable();
+            $table->unsignedInteger('capacity')->default(1);
+            $table->string('location', 100)->nullable();
+            $table->boolean('is_available')->default(true);
             $table->timestamps();
+
+            // --- 优化的索引策略 ---
+            $table->index('is_available');
+            $table->index('location');
+            // Laravel 在创建外键时通常会自动为外键字段添加索引，所以 'category_id' 无需手动添加
         });
     }
 

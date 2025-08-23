@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Select; // 引入 Select 以处理外键
 
 // 引入所需的表格列组件
 use Filament\Tables\Columns\TextColumn;
@@ -56,12 +57,12 @@ class TableResource extends Resource
                 Section::make('Table Details')
                     ->description('Fill in the basic information about the table.')
                     ->schema([
-                        // 餐桌名称
-                        TextInput::make('name')
-                            ->label('Table Name')
+                        // 1. 字段名修正：'name' -> 'table_code'
+                        TextInput::make('table_code')
+                            ->label('Table Code')
                             ->required()
                             ->maxLength(50)
-                            ->placeholder('e.g., Table A1'),
+                            ->placeholder('e.g., A01'),
 
                         // 可容纳人数
                         TextInput::make('capacity')
@@ -74,7 +75,7 @@ class TableResource extends Resource
                         // 描述
                         TextInput::make('description')
                             ->label('Description')
-                            ->maxLength(100)
+                            ->maxLength(255) // Textarea更合适，但按要求保留TextInput
                             ->nullable()
                             ->placeholder('e.g., By the window'),
 
@@ -105,9 +106,9 @@ class TableResource extends Resource
                     ->label('ID')
                     ->sortable(),
 
-                // 餐桌名称列
-                TextColumn::make('name')
-                    ->label('Table Name')
+                // 1. 字段名修正：'name' -> 'table_code'
+                TextColumn::make('table_code')
+                    ->label('Table Code')
                     ->searchable()
                     ->sortable(),
 
@@ -123,7 +124,7 @@ class TableResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true), // 默认隐藏此列
 
-                // 是否可用列 (使用IconColumn更直观)
+                // 是否可用列 (按要求保留 ToggleColumn)
                 ToggleColumn::make('is_available')
                     ->label('Available')
                     ->sortable(),
@@ -157,15 +158,13 @@ class TableResource extends Resource
             ->striped(); // 启用斑马纹样式
     }
 
-    // 定义关联关系管理器
+    // ... 其余方法保持不变 ...
+
     public static function getRelations(): array
     {
-        return [
-            // 如果将来有'reservations'等关联，可以在这里添加
-        ];
+        return [];
     }
 
-    // 定义页面和路由
     public static function getPages(): array
     {
         return [
