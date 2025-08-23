@@ -41,7 +41,7 @@ import Step1 from './steps/Step1';
 import Step2 from './steps/Step2';
 import Step3 from './steps/Step3';
 import Step4 from './steps/Step4';
-import { LoadingOverlay } from "../../components/LoadingOverlay"; // <--- 新增：导入加载组件
+import { LoadingOverlay } from "../../components/LoadingOverlay";
 
 export default function CartPage() {
   const { t, language } = useLanguage();
@@ -64,9 +64,15 @@ export default function CartPage() {
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  
+  // --- Dine In 状态 ---
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
-  const [isFetchingTables, setIsFetchingTables] = useState(false);
+  const [pax, setPax] = useState<number>(1);
+  const [reservationDate, setReservationDate] = useState<string>('');
+  const [checkInTime, setCheckInTime] = useState<string>('');
+  const [checkOutTime, setCheckOutTime] = useState<string>('');
+  // --- Dine In 状态结束 ---
 
   const [promoCode, setPromoCode] = useState("");
   const discount = promoCode === "SAVE10" ? 0.1 : 0;
@@ -214,8 +220,9 @@ export default function CartPage() {
         if (serviceType === 'delivery') {
             return deliveryAddress && !isCalculatingFee;
         }
-        if (serviceType === 'dine-in') {
-            return !!selectedTable;
+        const dineInMethod = serviceMethods.find(method => method.display_name.toLowerCase().includes('dine in'));
+        if (dineInMethod && serviceType === dineInMethod.name) {
+            return !!selectedTable; // 对于堂食，必须选择一个桌子
         }
         return !!serviceType;
     }
@@ -237,10 +244,19 @@ export default function CartPage() {
   const handlePlaceOrder = async () => {
     if (!cartData || isPlacingOrder) return;
     setIsPlacingOrder(true);
+    const dineInMethod = serviceMethods.find(method => method.display_name.toLowerCase().includes('dine in'));
+
     const orderData = {
       service_method_name: serviceType,
       payment_method_name: paymentMethod,
       address_id: serviceType === 'delivery' ? deliveryAddress : null,
+      table_id: (dineInMethod && serviceType === dineInMethod.name) ? selectedTable : null,
+      reservation_details: (dineInMethod && serviceType === dineInMethod.name) ? {
+        pax,
+        date: reservationDate,
+        check_in: checkInTime,
+        check_out: checkOutTime,
+      } : null,
       pickup_time: serviceType === 'pickup' && pickupTime ? pickupTime.slice(0, 16) : null,
       special_instructions: specialInstructions,
       promo_code: promoCode,
@@ -261,7 +277,6 @@ export default function CartPage() {
     }
   };
   
-  // --- 修改开始：替换初始加载UI ---
   if (isLoading || authIsLoading) {
     return (
       <LoadingOverlay
@@ -271,7 +286,6 @@ export default function CartPage() {
       />
     );
   }
-  // --- 修改结束 ---
 
   if (error) {
     return (
@@ -305,6 +319,14 @@ export default function CartPage() {
             tables={tables}
             selectedTable={selectedTable}
             setSelectedTable={setSelectedTable}
+            pax={pax}
+            setPax={setPax}
+            reservationDate={reservationDate}
+            setReservationDate={setReservationDate}
+            checkInTime={checkInTime}
+            setCheckInTime={setCheckInTime}
+            checkOutTime={checkOutTime}
+            setCheckOutTime={setCheckOutTime}
           />
         );
       case 3:

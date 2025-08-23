@@ -88,12 +88,20 @@ export interface Address {
     longitude: string;       // 经度
 }
 
+// ==========================================================
+//  ↓↓↓ 核心修改区域 ↓↓↓
+// ==========================================================
+
 // 定义了桌位的结构
 export interface Table {
   id: number;
-  name: string;
+  table_code: string;  // 修正：将 'name' 修改为 'table_code' 以匹配后端API
   description: string;
   capacity: number;
   location: string;
-  status: string;
+  status: string;      // 'status' 字段是正确的，因为Controller返回的是处理后的状态
 }
+
+// ==========================================================
+//  ↑↑↑ 核心修改区域 ↑↑↑
+// ==========================================================
