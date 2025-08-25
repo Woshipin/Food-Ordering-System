@@ -1,4 +1,4 @@
-// @/app/cart/lib.ts
+// @/app/cart/lib/lib.ts
 // 这个文件定义了购物车页面所需的所有TypeScript类型和接口。
 // 将类型定义分离到单独的文件中可以使主组件文件更清晰，也便于在其他文件中重用这些类型。
 
@@ -89,8 +89,27 @@ export interface Address {
 }
 
 // ==========================================================
-//  ↓↓↓ 核心修改区域 ↓↓↓
+//  ↓↓↓ 核心修改区域 (已更新) ↓↓↓
 // ==========================================================
+
+// 定义了当前订单的结构（用于显示桌位状态信息）
+export interface CurrentOrder {
+  order_id: number;
+  order_number: string;
+  table_status: 'pending' | 'completed' | 'cancelled'; // 移除了 'seated' 状态，因为桌位状态会反映这一点
+  guests_count: number;
+  checkin_time?: string;
+  checkout_time?: string;
+  dining_date?: string;
+  auto_extend_count: number;
+  total_extended_minutes: number;
+}
+
+// 定义了倒计时信息的结构
+export interface Countdown {
+  minutes_until_checkin: number;
+  checkin_time_formatted: string;
+}
 
 // 定义了桌位的结构
 export interface Table {
@@ -99,9 +118,22 @@ export interface Table {
   description: string;
   capacity: number;
   location: string;
-  status: string;      // 'status' 字段是正确的，因为Controller返回的是处理后的状态
+  is_available: boolean;  // 桌位的物理可用性
+  status: 'available' | 'pending' | 'seated' | 'maintenance';  // 当前显示状态
+  status_text: string;  // 状态的中文描述
+  available_for_booking: boolean;  // 是否可以预订
+  current_order?: CurrentOrder;  // 当前活跃订单信息（如果有）
+  countdown?: Countdown;  // 倒计时信息（pending状态时）
 }
 
 // ==========================================================
-//  ↑↑↑ 核心修改区域 ↑↑↑
+//  ↑↑↑ 核心修改区域 (已更新) ↑↑↑
 // ==========================================================
+
+// 新增：定义了时间段的结构，用于堂食预订
+export interface TimeSlot {
+  id: number;
+  start_time: string;
+  end_time: string;
+  is_available?: boolean; // 可选字段，由前端基于日期和现有预订动态计算
+}

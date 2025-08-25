@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             ContactCmsSeeder::class,
             AddressSeeder::class,
             TableSeeder::class,
+            TimeSlotSeeder::class,  // 添加时间段数据填充
         ]);
     }
 }

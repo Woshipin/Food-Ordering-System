@@ -22,19 +22,20 @@
 
 // --- 命名空间导入 (Namespace Imports) ---
 // 导入所有需要用到的控制器类和Laravel的路由门面
+use App\Http\Controllers\AddressController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\ContactMessageController;
-use App\Http\Controllers\GalleryController;
-use App\Http\Controllers\MenuController;
-use App\Http\Controllers\MenuPackageController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CheckoutOptionController;
 use App\Http\Controllers\CMSControlled;
-use App\Http\Controllers\AddressController;
+use App\Http\Controllers\ContactMessageController;
+use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\HealthCheckController;
+use App\Http\Controllers\MenuController;
+use App\Http\Controllers\MenuPackageController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\TableController;
+use App\Http\Controllers\TimeSlotController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,11 +70,11 @@ Route::middleware('api')->group(function () {
         Route::post('login', 'login')->middleware('throttle:5,1');
         Route::post('register', 'register')->middleware('throttle:5,1');
 
-        // --- 其他认证接口 ---
-        // 这些接口使用默认的API限流设置（通常是每分钟60次）。
-        Route::post('logout', 'logout');      // 用户登出
-        Route::post('refresh', 'refresh');    // 刷新JWT令牌
-        Route::get('me', 'me');               // 获取当前登录用户信息
+                                                     // --- 其他认证接口 ---
+                                                     // 这些接口使用默认的API限流设置（通常是每分钟60次）。
+        Route::post('logout', 'logout');             // 用户登出
+        Route::post('refresh', 'refresh');           // 刷新JWT令牌
+        Route::get('me', 'me');                      // 获取当前登录用户信息
         Route::put('user/profile', 'updateProfile'); // 更新用户信息
     });
 
@@ -82,7 +83,7 @@ Route::middleware('api')->group(function () {
     //   - 描述: 这些路由是公开的，任何用户（无论是否登录）都可以访问。
     //           主要用于获取公开信息，如菜单、分类、CMS内容等。
     // =================================================================================
-    Route::group([], function() {
+    Route::group([], function () {
         // --- 健康检查 ---
         // 一个简单的端点，用于检查API服务是否正在运行。
         Route::get('/health', [HealthCheckController::class, 'check']);
@@ -91,44 +92,50 @@ Route::middleware('api')->group(function () {
         // URL前缀: /api/cms
         // 控制器: CMSControlled
         Route::controller(CMSControlled::class)->prefix('cms')->group(function () {
-            Route::get('/home', 'homeCms');         // 获取首页内容
-            Route::get('/about', 'aboutUsCms');     // 获取“关于我们”页面内容
-            Route::get('/contact', 'contactCms');   // 获取“联系我们”页面内容
+            Route::get('/home', 'homeCms');       // 获取首页内容
+            Route::get('/about', 'aboutUsCms');   // 获取“关于我们”页面内容
+            Route::get('/contact', 'contactCms'); // 获取“联系我们”页面内容
         });
 
-        // --- 分类 (Categories) ---
+                                                                         // --- 分类 (Categories) ---
         Route::get('/categories', [CategoryController::class, 'index']); // 获取所有菜品分类
 
-        Route::get('/tables', [TableController::class, 'index']); // 获取所有餐桌信息
+        // --- 时间段 (Time Slots) ---
+        Route::get('/timeslots', [TimeSlotController::class, 'index']);
+        Route::get('/timeslots/availability', [TimeSlotController::class, 'getAvailability']); // 获取指定日期的时间段可用性
+
+        Route::get('/tables', [TableController::class, 'index']);                      // 获取所有餐桌信息（包含状态）
+        Route::get('/tables/available', [TableController::class, 'available']);        // 获取可用于预订的餐桌
+        Route::get('/tables/overview', [TableController::class, 'getTablesOverview']); // 获取桌位概述（管理员）
+        Route::get('/tables/{id}/status', [TableController::class, 'getTableStatus']); // 获取单个桌位状态
 
         // --- 菜单 (Menus) ---
         // URL前缀: /api/menus
         // 控制器: MenuController
         Route::controller(MenuController::class)->prefix('menus')->group(function () {
-            Route::get('/', 'index');         // 获取所有菜单项列表
-            Route::get('/{menu}', 'show');    // 获取单个菜单项的详细信息
+            Route::get('/', 'index');      // 获取所有菜单项列表
+            Route::get('/{menu}', 'show'); // 获取单个菜单项的详细信息
         });
 
         // --- 套餐 (Menu Packages) ---
         // URL前缀: /api/menu-packages
         // 控制器: MenuPackageController
         Route::controller(MenuPackageController::class)->prefix('menu-packages')->group(function () {
-            Route::get('/', 'index');                 // 获取所有套餐列表
-            Route::get('/{menu_package}', 'show');    // 获取单个套餐的详细信息
+            Route::get('/', 'index');              // 获取所有套餐列表
+            Route::get('/{menu_package}', 'show'); // 获取单个套餐的详细信息
         });
 
         // --- 联系表单 (Contact Form) ---
         // 接收来自“联系我们”页面的用户留言。
         Route::post('/contact', [ContactMessageController::class, 'store']);
 
-        // --- 画廊 (Gallery) ---
+                                                                       // --- 画廊 (Gallery) ---
         Route::get('/galleries', [GalleryController::class, 'index']); // 获取画廊图片
 
         // --- 结账选项 (Checkout Options) ---
         // 获取可用的支付方式和服务方式（如外卖、自取）。
         Route::get('/checkout-options', [CheckoutOptionController::class, 'index'])->name('checkout-options.index');
     });
-
 
     // =================================================================================
     // --- 受保护的路由组 (Protected Routes) ---
@@ -141,21 +148,21 @@ Route::middleware('api')->group(function () {
         // URL前缀: /api/cart
         // 控制器: CartController
         Route::controller(CartController::class)->prefix('cart')->group(function () {
-            Route::post('/menu/add', 'addMenuItem');        // 添加单个菜单到购物车
-            Route::post('/package/add', 'addPackageItem');  // 添加套餐到购物车
-            Route::get('/', 'getCart');                     // 获取购物车内容
-            Route::delete('/', 'clearCart');                // 清空购物车
+            Route::post('/menu/add', 'addMenuItem');       // 添加单个菜单到购物车
+            Route::post('/package/add', 'addPackageItem'); // 添加套餐到购物车
+            Route::get('/', 'getCart');                    // 获取购物车内容
+            Route::delete('/', 'clearCart');               // 清空购物车
         });
 
         // --- 用户地址 (User Addresses) ---
         // URL前缀: /api/address
         // 控制器: AddressController
         Route::controller(AddressController::class)->prefix('address')->group(function () {
-            Route::get('/', 'index');                       // 获取用户所有地址
-            Route::post('/add', 'store');                   // 新增地址
-            Route::get('/edit/{address}', 'show');          // 获取单个地址信息（用于编辑）
-            Route::put('/update/{address}', 'update');      // 更新地址
-            Route::delete('/delete/{address}', 'destroy');  // 删除地址
+            Route::get('/', 'index');                             // 获取用户所有地址
+            Route::post('/add', 'store');                         // 新增地址
+            Route::get('/edit/{address}', 'show');                // 获取单个地址信息（用于编辑）
+            Route::put('/update/{address}', 'update');            // 更新地址
+            Route::delete('/delete/{address}', 'destroy');        // 删除地址
             Route::patch('/{address}/set-default', 'setDefault'); // 设置为默认地址
         });
 
@@ -163,9 +170,9 @@ Route::middleware('api')->group(function () {
         // URL前缀: /api/orders
         // 控制器: OrderController
         Route::controller(OrderController::class)->prefix('orders')->group(function () {
-            Route::post('/add', 'store');       // 创建新订单
-            Route::get('/', 'index');           // 获取用户历史订单列表
-            Route::get('/{order}', 'show');     // 获取单个订单的详细信息
+            Route::post('/add', 'store');   // 创建新订单
+            Route::get('/', 'index');       // 获取用户历史订单列表
+            Route::get('/{order}', 'show'); // 获取单个订单的详细信息
         });
     });
 });

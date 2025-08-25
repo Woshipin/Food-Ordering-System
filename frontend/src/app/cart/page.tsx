@@ -26,21 +26,22 @@ import { useAuth } from "../../context/AuthContext";
 import axios from "../../lib/axios";
 import { toast } from "sonner";
 import {
-    CartData,
-    ServiceMethod,
-    PaymentMethod,
-    Address,
-    Table,
+  CartData,
+  ServiceMethod,
+  PaymentMethod,
+  Address,
+  Table,
+  TimeSlot, // --- 导入新的 TimeSlot 类型 ---
 } from "./lib/lib";
 import {
-    calculateDistance,
-    calculateItemTotal,
-    calculatePackageTotal,
+  calculateDistance,
+  calculateItemTotal,
+  calculatePackageTotal,
 } from "./function/cartfunction";
-import Step1 from './steps/Step1';
-import Step2 from './steps/Step2';
-import Step3 from './steps/Step3';
-import Step4 from './steps/Step4';
+import Step1 from "./steps/Step1";
+import Step2 from "./steps/Step2";
+import Step3 from "./steps/Step3";
+import Step4 from "./steps/Step4";
 import { LoadingOverlay } from "../../components/LoadingOverlay";
 
 export default function CartPage() {
@@ -57,26 +58,32 @@ export default function CartPage() {
   const [serviceMethods, setServiceMethods] = useState<ServiceMethod[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [storeLocation, setStoreLocation] = useState<{ latitude: number; longitude: number; } | null>(null);
+  const [storeLocation, setStoreLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const [serviceType, setServiceType] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<number | null>(null);
   const [pickupTime, setPickupTime] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
-  
+
   // --- Dine In 状态 ---
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [pax, setPax] = useState<number>(1);
-  const [reservationDate, setReservationDate] = useState<string>('');
-  const [checkInTime, setCheckInTime] = useState<string>('');
-  const [checkOutTime, setCheckOutTime] = useState<string>('');
+  const [reservationDate, setReservationDate] = useState<string>("");
+  // --- 新增：Time Slots 状态 ---
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [selectedTimeSlotId, setSelectedTimeSlotId] = useState<number | null>(
+    null
+  );
   // --- Dine In 状态结束 ---
 
   const [promoCode, setPromoCode] = useState("");
   const discount = promoCode === "SAVE10" ? 0.1 : 0;
-  
+
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryDistance, setDeliveryDistance] = useState(0);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
@@ -86,12 +93,20 @@ export default function CartPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [cartResponse, optionsResponse, addressResponse, contactCmsResponse, tablesResponse] = await Promise.all([
-            axios.get("/cart"),
-            axios.get("/checkout-options"),
-            axios.get("/address"),
-            axios.get(`/cms/contact?lang=${language}`),
-            axios.get("/tables"),
+        // --- 新增：添加 timeslots 请求 ---
+        const [
+          cartResponse,
+          optionsResponse,
+          addressResponse,
+          contactCmsResponse,
+          tablesResponse,
+        ] = await Promise.all([
+          axios.get("/cart"),
+          axios.get("/checkout-options"),
+          axios.get("/address"),
+          axios.get(`/cms/contact?lang=${language}`),
+          axios.get("/tables"),
+          // 移除 timeslots 的初始化获取，因为现在是基于日期动态获取
         ]);
 
         if (cartResponse.data && cartResponse.data.cart) {
@@ -100,49 +115,53 @@ export default function CartPage() {
 
         const optionsData = optionsResponse.data.data;
         if (optionsData && optionsData.service_methods) {
-            setServiceMethods(optionsData.service_methods);
-            if (optionsData.service_methods.length > 0) {
-                setServiceType(optionsData.service_methods[0].name);
-            }
+          setServiceMethods(optionsData.service_methods);
+          if (optionsData.service_methods.length > 0) {
+            setServiceType(optionsData.service_methods[0].name);
+          }
         }
         if (optionsData && optionsData.payment_methods) {
-            setPaymentMethods(optionsData.payment_methods);
-            if (optionsData.payment_methods.length > 0) {
-                setPaymentMethod(optionsData.payment_methods[0].name);
-            }
+          setPaymentMethods(optionsData.payment_methods);
+          if (optionsData.payment_methods.length > 0) {
+            setPaymentMethod(optionsData.payment_methods[0].name);
+          }
         }
 
         const cmsData = contactCmsResponse.data;
         if (cmsData && Array.isArray(cmsData.contact_info)) {
-            const locationInfo = cmsData.contact_info.find(
-              (info: any) => info.latitude && info.longitude
-            );
-            if (locationInfo) {
-              setStoreLocation({
-                latitude: parseFloat(locationInfo.latitude),
-                longitude: parseFloat(locationInfo.longitude),
-              });
-            }
+          const locationInfo = cmsData.contact_info.find(
+            (info: any) => info.latitude && info.longitude
+          );
+          if (locationInfo) {
+            setStoreLocation({
+              latitude: parseFloat(locationInfo.latitude),
+              longitude: parseFloat(locationInfo.longitude),
+            });
+          }
         }
-        
+
         const userAddresses = addressResponse.data;
         if (Array.isArray(userAddresses)) {
-            setAddresses(userAddresses);
-            const defaultAddress = userAddresses.find((addr: Address) => addr.is_default);
-            if (defaultAddress) {
-                setDeliveryAddress(defaultAddress.id);
-            } else if (userAddresses.length > 0) {
-                setDeliveryAddress(userAddresses[0].id);
-            }
+          setAddresses(userAddresses);
+          const defaultAddress = userAddresses.find(
+            (addr: Address) => addr.is_default
+          );
+          if (defaultAddress) {
+            setDeliveryAddress(defaultAddress.id);
+          } else if (userAddresses.length > 0) {
+            setDeliveryAddress(userAddresses[0].id);
+          }
         }
 
         if (tablesResponse.data) {
-            setTables(tablesResponse.data);
+          setTables(tablesResponse.data);
         }
 
+        // timeslots 现在由 fetchTimeSlotsAvailability 函数动态获取
       } catch (err: any) {
         console.error("Failed to fetch initial cart data:", err);
-        const errorMessage = err.response?.data?.message || "加载页面数据失败。";
+        const errorMessage =
+          err.response?.data?.message || "加载页面数据失败。";
         setError(errorMessage);
         toast.error(errorMessage);
       } finally {
@@ -160,37 +179,47 @@ export default function CartPage() {
   }, [authIsLoading, isAuthenticated, router, language]);
 
   useEffect(() => {
-    if (serviceType !== 'delivery') {
+    if (serviceType !== "delivery") {
       setDeliveryFee(0);
       setDeliveryDistance(0);
       setIsCalculatingFee(false);
       return;
     }
-  
+
     if (deliveryAddress && storeLocation && addresses.length > 0) {
       setIsCalculatingFee(true);
-      
-      const selectedAddress = addresses.find(addr => addr.id === deliveryAddress);
-  
-      if (selectedAddress && selectedAddress.latitude && selectedAddress.longitude && storeLocation.latitude && storeLocation.longitude) {
+
+      const selectedAddress = addresses.find(
+        (addr) => addr.id === deliveryAddress
+      );
+
+      if (
+        selectedAddress &&
+        selectedAddress.latitude &&
+        selectedAddress.longitude &&
+        storeLocation.latitude &&
+        storeLocation.longitude
+      ) {
         const distance = calculateDistance(
           storeLocation.latitude,
           storeLocation.longitude,
           parseFloat(selectedAddress.latitude),
           parseFloat(selectedAddress.longitude)
         );
-  
-        const PER_KM_RATE = 1.00;
+
+        const PER_KM_RATE = 1.0;
         const calculatedFee = distance * PER_KM_RATE;
-  
+
         setDeliveryFee(calculatedFee);
         setDeliveryDistance(distance);
       } else {
-        const staticFee = Number(serviceMethods.find(s => s.name === 'delivery')?.fee || 5.00);
+        const staticFee = Number(
+          serviceMethods.find((s) => s.name === "delivery")?.fee || 5.0
+        );
         setDeliveryFee(staticFee);
         setDeliveryDistance(0);
       }
-  
+
       setTimeout(() => setIsCalculatingFee(false), 300);
     } else {
       setIsCalculatingFee(true);
@@ -199,65 +228,144 @@ export default function CartPage() {
 
   const subtotal = React.useMemo(() => {
     if (!cartData) return 0;
-    const menuTotal = cartData.menu_items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
-    const packageTotal = cartData.package_items.reduce((sum, pkg) => sum + calculatePackageTotal(pkg), 0);
+    const menuTotal = cartData.menu_items.reduce(
+      (sum, item) => sum + calculateItemTotal(item),
+      0
+    );
+    const packageTotal = cartData.package_items.reduce(
+      (sum, pkg) => sum + calculatePackageTotal(pkg),
+      0
+    );
     return menuTotal + packageTotal;
   }, [cartData]);
 
-  const discountAmount = React.useMemo(() => subtotal * discount, [subtotal, discount]);
-  const total = React.useMemo(() => subtotal + deliveryFee - discountAmount, [subtotal, deliveryFee, discountAmount]);
+  const discountAmount = React.useMemo(
+    () => subtotal * discount,
+    [subtotal, discount]
+  );
+  const total = React.useMemo(
+    () => subtotal + deliveryFee - discountAmount,
+    [subtotal, deliveryFee, discountAmount]
+  );
 
   const totalItems = React.useMemo(() => {
     if (!cartData) return 0;
-    const menuCount = cartData.menu_items.reduce((sum, item) => sum + item.quantity, 0);
-    const packageCount = cartData.package_items.reduce((sum, pkg) => sum + pkg.quantity, 0);
+    const menuCount = cartData.menu_items.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const packageCount = cartData.package_items.reduce(
+      (sum, pkg) => sum + pkg.quantity,
+      0
+    );
     return menuCount + packageCount;
   }, [cartData]);
+
+  // --- 新增：获取所有时间段的函数 ---
+  const fetchTimeSlots = async () => {
+    try {
+      const response = await axios.get("/timeslots");
+
+      if (response.data && response.data.success) {
+        setTimeSlots(response.data.data || []);
+      } else {
+        console.warn("Failed to fetch timeslots:", response.data?.message);
+        setTimeSlots([]);
+      }
+    } catch (error) {
+      console.error("Error fetching timeslots:", error);
+      setTimeSlots([]);
+    }
+  };
+
+  // --- 新增：监听日期变化，显示所有时间段 ---
+  useEffect(() => {
+    if (reservationDate) {
+      fetchTimeSlots(); // 用户选择日期后，显示所有时间段
+    } else {
+      setTimeSlots([]);
+      setSelectedTimeSlotId(null);
+    }
+  }, [reservationDate]); // 只监听日期变化
 
   const canProceed = () => {
     if (currentStep === 1) return totalItems > 0;
     if (currentStep === 2) {
-        if (serviceType === 'delivery') {
-            return deliveryAddress && !isCalculatingFee;
-        }
-        const dineInMethod = serviceMethods.find(method => method.display_name.toLowerCase().includes('dine in'));
-        if (dineInMethod && serviceType === dineInMethod.name) {
-            return !!selectedTable; // 对于堂食，必须选择一个桌子
-        }
-        return !!serviceType;
+      if (serviceType === "delivery") {
+        return deliveryAddress && !isCalculatingFee;
+      }
+      const dineInMethod = serviceMethods.find((method) =>
+        method.display_name.toLowerCase().includes("dine in")
+      );
+      if (dineInMethod && serviceType === dineInMethod.name) {
+        // --- 修改：堂食必须选择桌位和时间段 ---
+        return !!selectedTable && !!selectedTimeSlotId;
+      }
+      return !!serviceType;
     }
     if (currentStep === 3) return !!paymentMethod;
     return true;
   };
 
-  const nextStep = () => { if (currentStep < 4) setCurrentStep(currentStep + 1); };
-  const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
-  const handleBack = () => { currentStep === 1 ? router.push("/") : prevStep(); };
-  
+  const nextStep = () => {
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
+  };
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+  const handleBack = () => {
+    currentStep === 1 ? router.push("/") : prevStep();
+  };
+
   const steps = [
-    { id: 1, title: t('cartStep') || 'Cart', description: t('confirmOrder') || 'Review Items' },
-    { id: 2, title: t('serviceStep') || 'Service', description: t('selectService') || 'Choose Service' },
-    { id: 3, title: t('paymentStep') || 'Payment', description: t('selectPayment') || 'Payment Method' },
-    { id: 4, title: t('confirmStep') || 'Confirm', description: t('verifyInfo') || 'Final Review' },
+    {
+      id: 1,
+      title: t("cartStep") || "Cart",
+      description: t("confirmOrder") || "Review Items",
+    },
+    {
+      id: 2,
+      title: t("serviceStep") || "Service",
+      description: t("selectService") || "Choose Service",
+    },
+    {
+      id: 3,
+      title: t("paymentStep") || "Payment",
+      description: t("selectPayment") || "Payment Method",
+    },
+    {
+      id: 4,
+      title: t("confirmStep") || "Confirm",
+      description: t("verifyInfo") || "Final Review",
+    },
   ];
 
   const handlePlaceOrder = async () => {
     if (!cartData || isPlacingOrder) return;
     setIsPlacingOrder(true);
-    const dineInMethod = serviceMethods.find(method => method.display_name.toLowerCase().includes('dine in'));
+    const dineInMethod = serviceMethods.find((method) =>
+      method.display_name.toLowerCase().includes("dine in")
+    );
 
     const orderData = {
       service_method_name: serviceType,
       payment_method_name: paymentMethod,
-      address_id: serviceType === 'delivery' ? deliveryAddress : null,
-      table_id: (dineInMethod && serviceType === dineInMethod.name) ? selectedTable : null,
-      reservation_details: (dineInMethod && serviceType === dineInMethod.name) ? {
-        pax,
-        date: reservationDate,
-        check_in: checkInTime,
-        check_out: checkOutTime,
-      } : null,
-      pickup_time: serviceType === 'pickup' && pickupTime ? pickupTime.slice(0, 16) : null,
+      address_id: serviceType === "delivery" ? deliveryAddress : null,
+      table_id:
+        dineInMethod && serviceType === dineInMethod.name
+          ? selectedTable
+          : null,
+      // --- 修改：提交 reservation_details 时使用 time_slot_id ---
+      reservation_details:
+        dineInMethod && serviceType === dineInMethod.name
+          ? {
+              pax,
+              date: reservationDate,
+              time_slot_id: selectedTimeSlotId, // <-- 发送所选时间段的ID
+            }
+          : null,
+      pickup_time:
+        serviceType === "pickup" && pickupTime ? pickupTime.slice(0, 16) : null,
       special_instructions: specialInstructions,
       promo_code: promoCode,
       delivery_fee: deliveryFee,
@@ -266,7 +374,7 @@ export default function CartPage() {
       total_amount: total,
     };
     try {
-      const response = await axios.post('/orders/add', orderData);
+      const response = await axios.post("/orders/add", orderData);
       toast.success(response.data.message);
       router.push("/");
     } catch (err: any) {
@@ -276,7 +384,7 @@ export default function CartPage() {
       setIsPlacingOrder(false);
     }
   };
-  
+
   if (isLoading || authIsLoading) {
     return (
       <LoadingOverlay
@@ -323,10 +431,10 @@ export default function CartPage() {
             setPax={setPax}
             reservationDate={reservationDate}
             setReservationDate={setReservationDate}
-            checkInTime={checkInTime}
-            setCheckInTime={setCheckInTime}
-            checkOutTime={checkOutTime}
-            setCheckOutTime={setCheckOutTime}
+            // --- 传递新的 props ---
+            timeSlots={timeSlots}
+            selectedTimeSlotId={selectedTimeSlotId}
+            setSelectedTimeSlotId={setSelectedTimeSlotId}
           />
         );
       case 3:
@@ -351,6 +459,13 @@ export default function CartPage() {
             specialInstructions={specialInstructions}
             paymentMethod={paymentMethod}
             paymentMethods={paymentMethods}
+            selectedTable={selectedTable}
+            tables={tables}
+            pax={pax}
+            reservationDate={reservationDate}
+            // --- 传递时间段信息到 Step4 以便最终确认 ---
+            selectedTimeSlotId={selectedTimeSlotId}
+            timeSlots={timeSlots}
           />
         );
       default:
@@ -360,11 +475,16 @@ export default function CartPage() {
 
   const getNextButtonText = () => {
     switch (currentStep) {
-      case 1: return 'Choose Service';
-      case 2: return 'Select Payment';
-      case 3: return 'Review Order';
-      case 4: return 'Place Order';
-      default: return 'Continue';
+      case 1:
+        return "Choose Service";
+      case 2:
+        return "Select Payment";
+      case 3:
+        return "Review Order";
+      case 4:
+        return "Place Order";
+      default:
+        return "Continue";
     }
   };
 
@@ -402,20 +522,37 @@ export default function CartPage() {
                 <div className="flex flex-col items-center text-center w-28">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all z-10 ${
-                      currentStep > step.id ? "bg-green-500 text-white" : currentStep === step.id ? "bg-orange-500 text-white" : "bg-gray-200 text-gray-600"
+                      currentStep > step.id
+                        ? "bg-green-500 text-white"
+                        : currentStep === step.id
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-200 text-gray-600"
                     }`}
                   >
-                    {currentStep > step.id ? <Check className="w-5 h-5" /> : step.id}
+                    {currentStep > step.id ? (
+                      <Check className="w-5 h-5" />
+                    ) : (
+                      step.id
+                    )}
                   </div>
                   <div className="mt-2">
-                    <div className={`text-sm font-medium ${currentStep >= step.id ? "text-orange-600" : "text-gray-500"}`}>
+                    <div
+                      className={`text-sm font-medium ${
+                        currentStep >= step.id
+                          ? "text-orange-600"
+                          : "text-gray-500"
+                      }`}
+                    >
                       {step.title}
                     </div>
                   </div>
                 </div>
                 {index < steps.length - 1 && (
                   <div className="w-40 h-0.5 bg-gray-200 mt-5 relative">
-                    <div className={`h-full bg-green-500 absolute transition-all duration-300`} style={{width: currentStep > step.id ? '100%' : '0%'}}></div>
+                    <div
+                      className={`h-full bg-green-500 absolute transition-all duration-300`}
+                      style={{ width: currentStep > step.id ? "100%" : "0%" }}
+                    ></div>
                   </div>
                 )}
               </React.Fragment>
@@ -430,9 +567,12 @@ export default function CartPage() {
             <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-6">
               <ShoppingCart className="h-12 w-12 text-gray-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-600 mb-3">Your cart is empty</h2>
+            <h2 className="text-2xl font-bold text-gray-600 mb-3">
+              Your cart is empty
+            </h2>
             <p className="text-gray-500 mb-8 max-w-md mx-auto">
-              Looks like you haven't added any items to your cart yet. Start browsing our delicious menu!
+              Looks like you haven't added any items to your cart yet. Start
+              browsing our delicious menu!
             </p>
             <Link href="/menu">
               <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-3 rounded-xl shadow-lg">
@@ -442,9 +582,7 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
-              {getStepContent()}
-            </div>
+            <div className="lg:col-span-2">{getStepContent()}</div>
 
             <div className="space-y-6 sticky top-28">
               <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
@@ -455,57 +593,81 @@ export default function CartPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                    <div className="space-y-2 text-sm">
-                        {cartData?.menu_items.map(item => (
-                            <div key={`summary-menu-${item.id}`} className="flex justify-between text-gray-600">
-                                <span>{item.menu_name} x {item.quantity}</span>
-                                <span className="font-medium">RM{calculateItemTotal(item).toFixed(2)}</span>
-                            </div>
-                        ))}
-                        {cartData?.package_items.map(pkg => (
-                            <div key={`summary-pkg-${pkg.id}`} className="flex justify-between text-gray-600">
-                                <span>{pkg.package_name} x {pkg.quantity}</span>
-                                <span className="font-medium">RM{calculatePackageTotal(pkg).toFixed(2)}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    <Separator className="my-4" />
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between text-gray-600 font-medium">
-                        <span>Subtotal ({totalItems} items)</span>
-                        <span className="font-semibold">RM{subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
+                  <div className="space-y-2 text-sm">
+                    {cartData?.menu_items.map((item) => (
+                      <div
+                        key={`summary-menu-${item.id}`}
+                        className="flex justify-between text-gray-600"
+                      >
                         <span>
-                            Delivery Fee
-                            {serviceType === 'delivery' && deliveryDistance > 0 && !isCalculatingFee && (
-                                <span className="text-xs text-gray-500 ml-1">({deliveryDistance.toFixed(2)} km)</span>
-                            )}
+                          {item.menu_name} x {item.quantity}
                         </span>
                         <span className="font-medium">
-                            {serviceType !== 'delivery' ? (
-                              <span className="text-gray-500">N/A</span>
-                            ) : isCalculatingFee ? (
-                              <span className="text-blue-500">Calculating...</span>
-                            ) : (
-                              `RM${deliveryFee.toFixed(2)}`
-                            )}
+                          RM{calculateItemTotal(item).toFixed(2)}
                         </span>
-                        </div>
-                        {discountAmount > 0 && (
-                        <div className="flex justify-between text-green-600">
-                            <span>Discount (10%)</span>
-                            <span className="font-medium">-RM{discountAmount.toFixed(2)}</span>
-                        </div>
-                        )}
-                        <Separator />
-                        <div className="flex justify-between text-xl font-bold">
-                        <span className="text-gray-900">Total</span>
-                        <span className="text-orange-500">RM{total.toFixed(2)}</span>
-                        </div>
+                      </div>
+                    ))}
+                    {cartData?.package_items.map((pkg) => (
+                      <div
+                        key={`summary-pkg-${pkg.id}`}
+                        className="flex justify-between text-gray-600"
+                      >
+                        <span>
+                          {pkg.package_name} x {pkg.quantity}
+                        </span>
+                        <span className="font-medium">
+                          RM{calculatePackageTotal(pkg).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-gray-600 font-medium">
+                      <span>Subtotal ({totalItems} items)</span>
+                      <span className="font-semibold">
+                        RM{subtotal.toFixed(2)}
+                      </span>
                     </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>
+                        Delivery Fee
+                        {serviceType === "delivery" &&
+                          deliveryDistance > 0 &&
+                          !isCalculatingFee && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              ({deliveryDistance.toFixed(2)} km)
+                            </span>
+                          )}
+                      </span>
+                      <span className="font-medium">
+                        {serviceType !== "delivery" ? (
+                          <span className="text-gray-500">N/A</span>
+                        ) : isCalculatingFee ? (
+                          <span className="text-blue-500">Calculating...</span>
+                        ) : (
+                          `RM${deliveryFee.toFixed(2)}`
+                        )}
+                      </span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount (10%)</span>
+                        <span className="font-medium">
+                          -RM{discountAmount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between text-xl font-bold">
+                      <span className="text-gray-900">Total</span>
+                      <span className="text-orange-500">
+                        RM{total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -527,7 +689,7 @@ export default function CartPage() {
                     </>
                   )}
                 </Button>
-                
+
                 {currentStep > 1 && (
                   <Button
                     variant="outline"
