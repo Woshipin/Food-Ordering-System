@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
+
 // 引入 Log Facade
 
 class OrderController extends Controller
@@ -168,8 +169,8 @@ class OrderController extends Controller
                         $orderData['auto_extend_count']      = 0;
                         $orderData['total_extended_minutes'] = 0;
 
-                        // 将桌位设置为不可用（被预订）
-                        $table->update(['is_available' => false]);
+                        // 注意：不修改桌位的is_available状态，只有管理员才能修改桌位状态
+                        // 桌位的可用性应该通过orders表中的数据来判断，而不是直接修改tables表
 
                         Log::info("创建 dine-in 订单", [
                             'order_number'  => $orderData['order_number'],

@@ -287,7 +287,12 @@ const OrderConfirmation: React.FC<Step4Props> = ({
                   <div className="flex justify-between">
                     <span className="text-gray-600">Reservation Date:</span>
                     <span className="font-medium">
-                      {new Date(reservationDate).toLocaleDateString()}
+                      {(() => {
+                        const date = new Date(reservationDate);
+                        return `${date.getDate()}/${
+                          date.getMonth() + 1
+                        }/${date.getFullYear()}`;
+                      })()}
                     </span>
                   </div>
                 )}

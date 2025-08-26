@@ -93,73 +93,161 @@ export default function CartPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // --- 新增：添加 timeslots 请求 ---
+        console.log("开始获取购物车页面数据...");
+
+        // --- 分别处理每个API调用，添加详细的错误日志 ---
+        const apiCalls = [
+          { name: "cart", call: () => axios.get("/cart") },
+          {
+            name: "checkout-options",
+            call: () => axios.get("/checkout-options"),
+          },
+          { name: "address", call: () => axios.get("/address") },
+          {
+            name: "contact-cms",
+            call: () => axios.get(`/cms/contact?lang=${language}`),
+          },
+          { name: "tables", call: () => axios.get("/tables") },
+        ];
+
+        const results = await Promise.allSettled(
+          apiCalls.map((api) => api.call())
+        );
+
+        // 处理每个API调用的结果，记录详细的成功/失败信息
+        results.forEach((result, index) => {
+          const apiName = apiCalls[index].name;
+          if (result.status === "fulfilled") {
+            console.log(`✅ ${apiName} API 调用成功`);
+          } else {
+            console.error(`❌ ${apiName} API 调用失败:`, result.reason);
+            if (result.reason?.response) {
+              console.error(
+                `${apiName} 错误状态:`,
+                result.reason.response.status
+              );
+              console.error(
+                `${apiName} 错误数据:`,
+                result.reason.response.data
+              );
+            }
+          }
+        });
+
         const [
           cartResponse,
           optionsResponse,
           addressResponse,
           contactCmsResponse,
           tablesResponse,
-        ] = await Promise.all([
-          axios.get("/cart"),
-          axios.get("/checkout-options"),
-          axios.get("/address"),
-          axios.get(`/cms/contact?lang=${language}`),
-          axios.get("/tables"),
-          // 移除 timeslots 的初始化获取，因为现在是基于日期动态获取
-        ]);
+        ] = results;
 
-        if (cartResponse.data && cartResponse.data.cart) {
-          setCartData(cartResponse.data.cart);
+        // 处理购物车数据
+        if (
+          cartResponse.status === "fulfilled" &&
+          cartResponse.value.data &&
+          cartResponse.value.data.cart
+        ) {
+          setCartData(cartResponse.value.data.cart);
+          console.log("购物车数据加载成功");
+        } else {
+          console.warn("购物车数据加载失败或为空");
         }
 
-        const optionsData = optionsResponse.data.data;
-        if (optionsData && optionsData.service_methods) {
-          setServiceMethods(optionsData.service_methods);
-          if (optionsData.service_methods.length > 0) {
-            setServiceType(optionsData.service_methods[0].name);
+        // 处理结账选项数据
+        if (optionsResponse.status === "fulfilled") {
+          const optionsData = optionsResponse.value.data.data;
+          if (optionsData && optionsData.service_methods) {
+            setServiceMethods(optionsData.service_methods);
+            if (optionsData.service_methods.length > 0) {
+              setServiceType(optionsData.service_methods[0].name);
+            }
           }
-        }
-        if (optionsData && optionsData.payment_methods) {
-          setPaymentMethods(optionsData.payment_methods);
-          if (optionsData.payment_methods.length > 0) {
-            setPaymentMethod(optionsData.payment_methods[0].name);
+          if (optionsData && optionsData.payment_methods) {
+            setPaymentMethods(optionsData.payment_methods);
+            if (optionsData.payment_methods.length > 0) {
+              setPaymentMethod(optionsData.payment_methods[0].name);
+            }
           }
-        }
-
-        const cmsData = contactCmsResponse.data;
-        if (cmsData && Array.isArray(cmsData.contact_info)) {
-          const locationInfo = cmsData.contact_info.find(
-            (info: any) => info.latitude && info.longitude
+          console.log("结账选项数据加载成功");
+        } else {
+          console.error(
+            "结账选项数据加载失败:",
+            optionsResponse.status === "rejected"
+              ? optionsResponse.reason
+              : "Unknown error"
           );
-          if (locationInfo) {
-            setStoreLocation({
-              latitude: parseFloat(locationInfo.latitude),
-              longitude: parseFloat(locationInfo.longitude),
-            });
-          }
         }
 
-        const userAddresses = addressResponse.data;
-        if (Array.isArray(userAddresses)) {
-          setAddresses(userAddresses);
-          const defaultAddress = userAddresses.find(
-            (addr: Address) => addr.is_default
+        // 处理CMS数据
+        if (contactCmsResponse.status === "fulfilled") {
+          const cmsData = contactCmsResponse.value.data;
+          if (cmsData && Array.isArray(cmsData.contact_info)) {
+            const locationInfo = cmsData.contact_info.find(
+              (info: any) => info.latitude && info.longitude
+            );
+            if (locationInfo) {
+              setStoreLocation({
+                latitude: parseFloat(locationInfo.latitude),
+                longitude: parseFloat(locationInfo.longitude),
+              });
+            }
+          }
+          console.log("CMS数据加载成功");
+        } else {
+          console.error(
+            "CMS数据加载失败:",
+            contactCmsResponse.status === "rejected"
+              ? contactCmsResponse.reason
+              : "Unknown error"
           );
-          if (defaultAddress) {
-            setDeliveryAddress(defaultAddress.id);
-          } else if (userAddresses.length > 0) {
-            setDeliveryAddress(userAddresses[0].id);
+        }
+
+        // 处理地址数据
+        if (addressResponse.status === "fulfilled") {
+          const userAddresses = addressResponse.value.data;
+          if (Array.isArray(userAddresses)) {
+            setAddresses(userAddresses);
+            const defaultAddress = userAddresses.find(
+              (addr: Address) => addr.is_default
+            );
+            if (defaultAddress) {
+              setDeliveryAddress(defaultAddress.id);
+            } else if (userAddresses.length > 0) {
+              setDeliveryAddress(userAddresses[0].id);
+            }
           }
+          console.log("地址数据加载成功");
+        } else {
+          console.error(
+            "地址数据加载失败:",
+            addressResponse.status === "rejected"
+              ? addressResponse.reason
+              : "Unknown error"
+          );
         }
 
-        if (tablesResponse.data) {
-          setTables(tablesResponse.data);
+        // 处理桌位数据
+        if (tablesResponse.status === "fulfilled") {
+          if (tablesResponse.value.data) {
+            const tablesData = tablesResponse.value.data;
+            setTables(tablesData);
+            console.log("桌位数据加载成功，数量:", tablesData.length);
+          }
+        } else {
+          console.error(
+            "桌位数据加载失败:",
+            tablesResponse.status === "rejected"
+              ? tablesResponse.reason
+              : "Unknown error"
+          );
+          // 如果桌位获取失败，设置为空数组以避免崩溃
+          setTables([]);
         }
 
-        // timeslots 现在由 fetchTimeSlotsAvailability 函数动态获取
+        console.log("购物车页面数据加载完成");
       } catch (err: any) {
-        console.error("Failed to fetch initial cart data:", err);
+        console.error("购物车页面数据加载出现未捕获的错误:", err);
         const errorMessage =
           err.response?.data?.message || "加载页面数据失败。";
         setError(errorMessage);
@@ -173,6 +261,7 @@ export default function CartPage() {
       if (isAuthenticated) {
         fetchInitialData();
       } else {
+        console.log("用户未认证，跳转到登录页面");
         router.push("/auth/login");
       }
     }
@@ -278,15 +367,120 @@ export default function CartPage() {
     }
   };
 
-  // --- 新增：监听日期变化，显示所有时间段 ---
+  // --- 新增：检查特定日期的时间段可用性 ---
+  const checkTimeSlotsAvailability = async (date: string) => {
+    try {
+      const response = await axios.post("/timeslots/check-availability", {
+        date: date,
+      });
+
+      if (response.data && response.data.success) {
+        const timeSlotsWithAvailability = response.data.data || [];
+        setTimeSlots(timeSlotsWithAvailability);
+
+        // 如果当前选择的时间段不可用，清除选择
+        if (selectedTimeSlotId) {
+          const selectedSlot = timeSlotsWithAvailability.find(
+            (slot: any) => slot.id === selectedTimeSlotId
+          );
+          if (selectedSlot && !selectedSlot.is_available) {
+            setSelectedTimeSlotId(null);
+            toast.warning("您之前选择的时间段已不可用，请重新选择。");
+          }
+        }
+      } else {
+        console.warn(
+          "Failed to check timeslots availability:",
+          response.data?.message
+        );
+        // 如果可用性检查失败，尝试获取所有时间段
+        await fetchTimeSlots();
+      }
+    } catch (error) {
+      console.error("Error checking timeslots availability:", error);
+      // 错误情况下显示所有时间段，但不显示可用性状态
+      await fetchTimeSlots();
+      // 不显示错误提示，因为这可能是旰功能，后端还没有完全就绪
+    }
+  };
+
+  // --- 新增：检查特定日期和时间段的桌位可用性 ---
+  const checkTablesAvailability = async (
+    date: string,
+    timeSlotId: number,
+    guestsCount: number = pax
+  ) => {
+    console.log("Checking tables availability:", {
+      date,
+      timeSlotId,
+      guestsCount,
+    }); // 调试日志
+
+    try {
+      const response = await axios.post("/tables/check-availability", {
+        date: date,
+        time_slot_id: timeSlotId,
+        guests_count: guestsCount,
+      });
+
+      console.log("Tables availability response:", response.data); // 调试日志
+
+      if (response.data && response.data.success) {
+        const tablesWithAvailability = response.data.data || [];
+        console.log(
+          "Setting tables with availability:",
+          tablesWithAvailability
+        ); // 调试日志
+        setTables(tablesWithAvailability);
+
+        // 如果当前选择的桌位不可用，清除选择
+        if (selectedTable) {
+          const selectedTableData = tablesWithAvailability.find(
+            (table: any) => table.id === selectedTable
+          );
+          if (selectedTableData && !selectedTableData.is_available) {
+            setSelectedTable(null);
+            toast.warning("您之前选择的桌位在该时间段已不可用，请重新选择。");
+          }
+        }
+
+        return tablesWithAvailability;
+      } else {
+        console.warn(
+          "Failed to check tables availability:",
+          response.data?.message
+        );
+        console.log("Keeping existing tables:", tables); // 调试日志
+        // 如果可用性检查失败，保持现有桌位数据，不清空
+        return tables; // 返回现有桌位数据
+      }
+    } catch (error) {
+      console.error("Error checking tables availability:", error);
+      console.log("Keeping existing tables due to error:", tables); // 调试日志
+      // 错误情况下保持现有桌位数据，不清空
+      // 这样用户仍然可以看到所有桌位，只是没有实时可用性信息
+      return tables; // 返回现有桌位数据
+    }
+  };
+
+  // --- 新增：监听日期变化，检查时间段可用性 ---
   useEffect(() => {
     if (reservationDate) {
-      fetchTimeSlots(); // 用户选择日期后，显示所有时间段
+      checkTimeSlotsAvailability(reservationDate); // 用户选择日期后，检查时间段可用性
     } else {
       setTimeSlots([]);
       setSelectedTimeSlotId(null);
     }
   }, [reservationDate]); // 只监听日期变化
+
+  // --- 新增：监听时间段和客人数变化，检查桌位可用性 ---
+  useEffect(() => {
+    if (reservationDate && selectedTimeSlotId) {
+      // 只有当日期和时间段都选择了才调用可用性检查
+      checkTablesAvailability(reservationDate, selectedTimeSlotId, pax);
+    }
+    // 注意：当没有选择时间段时，不清空桌位列表，让用户能看到所有桌位
+  }, [reservationDate, selectedTimeSlotId, pax]); // 监听日期、时间段和客人数变化
 
   const canProceed = () => {
     if (currentStep === 1) return totalItems > 0;

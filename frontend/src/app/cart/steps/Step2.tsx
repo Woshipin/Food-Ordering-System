@@ -88,14 +88,23 @@ const ServiceSelection: React.FC<Step2Props> = ({
   };
 
   const filteredTables = useMemo(() => {
-    return tables.filter(
-      (table) =>
-        table.capacity >= pax &&
-        (table.available_for_booking === true || table.status === "available")
-    );
+    return tables.filter((table) => table.capacity >= pax);
   }, [tables, pax]);
 
   const getTableStatusInfo = (table: Table) => {
+    // 如果桌位数据包含 is_available 字段（来自可用性检查），使用该字段
+    if (typeof table.is_available === "boolean") {
+      return {
+        color: table.is_available
+          ? "bg-green-100 text-green-800 border-green-200"
+          : "bg-red-100 text-red-800 border-red-200",
+        icon: table.is_available ? "Check" : "X",
+        text: table.is_available ? "可用" : "已预订",
+        available: table.is_available,
+      };
+    }
+
+    // 否则使用原有逻辑
     switch (table.status) {
       case "pending":
         return {
@@ -125,6 +134,9 @@ const ServiceSelection: React.FC<Step2Props> = ({
   const allTablesForDisplay = useMemo(() => {
     return tables.filter((table) => table.capacity >= pax);
   }, [tables, pax]);
+
+  // 新增：提示用户需要选择日期和时间段才能显示桌位可用性
+  const shouldShowAvailabilityMessage = !reservationDate || !selectedTimeSlotId;
 
   return (
     <div className="space-y-8">
@@ -287,33 +299,68 @@ const ServiceSelection: React.FC<Step2Props> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.isArray(timeSlots) &&
                   timeSlots.map((slot) => {
-                    // 所有时间段都可以选择，没有状态限制
+                    // 检查时间段是否可用
+                    const isAvailable = slot.is_available !== false; // 默认可用，除非明确标记为不可用
                     const isSelected = selectedTimeSlotId === slot.id;
+                    const isDisabled = !isAvailable;
 
                     return (
                       <div
                         key={slot.id}
-                        onClick={() => setSelectedTimeSlotId(slot.id)}
-                        className={`relative p-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer bg-white shadow-sm hover:shadow-lg transform hover:-translate-y-1 ${
-                          isSelected
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setSelectedTimeSlotId(slot.id);
+                          }
+                        }}
+                        className={`relative p-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center text-center ${
+                          isDisabled
+                            ? "cursor-not-allowed opacity-50 bg-gray-100 border-gray-300"
+                            : "cursor-pointer bg-white shadow-sm hover:shadow-lg transform hover:-translate-y-1"
+                        } ${
+                          isSelected && !isDisabled
                             ? "border-orange-500 bg-orange-50 ring-2 ring-orange-200"
-                            : "border-gray-200 hover:border-orange-300"
+                            : !isDisabled
+                            ? "border-gray-200 hover:border-orange-300"
+                            : ""
                         }`}
                       >
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
-                            <Icon name="Check" className="h-3 w-3 text-white" />
-                          </div>
-                        )}
+                        {/* 状态指示器 */}
+                        <div className="absolute top-2 right-2">
+                          {isSelected && !isDisabled && (
+                            <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
+                              <Icon
+                                name="Check"
+                                className="h-3 w-3 text-white"
+                              />
+                            </div>
+                          )}
+                          {isDisabled && (
+                            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+                              <Icon name="X" className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {!isDisabled && !isSelected && (
+                            <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+                          )}
+                        </div>
+
                         <Icon
                           name="Clock"
                           className={`h-6 w-6 mb-2 ${
-                            isSelected ? "text-orange-600" : "text-gray-500"
+                            isDisabled
+                              ? "text-gray-400"
+                              : isSelected
+                              ? "text-orange-600"
+                              : "text-gray-500"
                           }`}
                         />
                         <div
                           className={`font-bold text-base ${
-                            isSelected ? "text-orange-700" : "text-gray-800"
+                            isDisabled
+                              ? "text-gray-400"
+                              : isSelected
+                              ? "text-orange-700"
+                              : "text-gray-800"
                           }`}
                         >
                           {formatTime(slot.start_time)}
@@ -321,19 +368,30 @@ const ServiceSelection: React.FC<Step2Props> = ({
                         <div className="text-xs text-gray-500">to</div>
                         <div
                           className={`font-bold text-base ${
-                            isSelected ? "text-orange-700" : "text-gray-800"
+                            isDisabled
+                              ? "text-gray-400"
+                              : isSelected
+                              ? "text-orange-700"
+                              : "text-gray-800"
                           }`}
                         >
                           {formatTime(slot.end_time)}
+                        </div>
+
+                        {/* 可用性状态文字 */}
+                        <div
+                          className={`text-xs mt-2 font-medium ${
+                            isDisabled ? "text-red-600" : "text-green-600"
+                          }`}
+                        >
+                          {isDisabled ? "已满" : "可用"}
                         </div>
                       </div>
                     );
                   })}
                 {(!Array.isArray(timeSlots) || timeSlots.length === 0) && (
                   <div className="col-span-full text-center py-8 text-gray-500">
-                    {reservationDate
-                      ? "Loading time slots..."
-                      : "Please select a date first."}
+                    {reservationDate ? "正在加载时间段..." : "请先选择日期。"}
                   </div>
                 )}
               </div>
@@ -347,6 +405,11 @@ const ServiceSelection: React.FC<Step2Props> = ({
                 <h3 className="text-lg font-semibold text-gray-800 flex items-center">
                   <Icon name="Table" className="mr-2 h-5 w-5 text-orange-600" />
                   Table Selection
+                  {shouldShowAvailabilityMessage && (
+                    <span className="ml-2 text-sm font-normal text-gray-500">
+                      (请先选择日期和时间段)
+                    </span>
+                  )}
                 </h3>
                 <div className="flex items-center space-x-4 text-sm">
                   <div className="flex items-center space-x-1">
@@ -354,12 +417,12 @@ const ServiceSelection: React.FC<Step2Props> = ({
                     <span className="text-gray-600">可用</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                     <span className="text-gray-600">已预订</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-gray-600">用餐中</span>
+                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                    <span className="text-gray-600">维护中</span>
                   </div>
                 </div>
               </div>
@@ -516,11 +579,23 @@ const ServiceSelection: React.FC<Step2Props> = ({
               <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-blue-800">
-                    可用桌位统计:
+                    桌位状态统计:
                   </span>
                   <div className="flex items-center space-x-4 text-blue-600">
-                    <span>可选择: {filteredTables.length}</span>
+                    <span>
+                      可选择:{" "}
+                      {
+                        filteredTables.filter(
+                          (table) => getTableStatusInfo(table).available
+                        ).length
+                      }
+                    </span>
                     <span>总计: {allTablesForDisplay.length}</span>
+                    {shouldShowAvailabilityMessage && (
+                      <span className="text-orange-600 font-medium">
+                        请选择日期和时间段查看实时可用性
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

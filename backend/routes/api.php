@@ -102,12 +102,14 @@ Route::middleware('api')->group(function () {
 
         // --- 时间段 (Time Slots) ---
         Route::get('/timeslots', [TimeSlotController::class, 'index']);
-        Route::get('/timeslots/availability', [TimeSlotController::class, 'getAvailability']); // 获取指定日期的时间段可用性
+        Route::get('/timeslots/availability', [TimeSlotController::class, 'getAvailability']);          // 获取指定日期的时间段可用性
+        Route::post('/timeslots/check-availability', [TimeSlotController::class, 'checkAvailability']); // 检查时间段可用性
 
-        Route::get('/tables', [TableController::class, 'index']);                      // 获取所有餐桌信息（包含状态）
-        Route::get('/tables/available', [TableController::class, 'available']);        // 获取可用于预订的餐桌
-        Route::get('/tables/overview', [TableController::class, 'getTablesOverview']); // 获取桌位概述（管理员）
-        Route::get('/tables/{id}/status', [TableController::class, 'getTableStatus']); // 获取单个桌位状态
+        Route::get('/tables', [TableController::class, 'index']);                                      // 获取所有餐桌信息（包含状态）
+        Route::get('/tables/available', [TableController::class, 'available']);                        // 获取可用于预订的餐桌
+        Route::get('/tables/overview', [TableController::class, 'getTablesOverview']);                 // 获取桌位概述（管理员）
+        Route::get('/tables/{id}/status', [TableController::class, 'getTableStatus']);                 // 获取单个桌位状态
+        Route::post('/tables/check-availability', [TableController::class, 'checkTableAvailability']); // 检查特定日期和时间段的桌位可用性
 
         // --- 菜单 (Menus) ---
         // URL前缀: /api/menus
