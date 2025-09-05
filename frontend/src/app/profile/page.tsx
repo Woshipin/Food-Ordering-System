@@ -24,7 +24,10 @@ import {
   StickyNote,
   Store,
   HandPlatter,
-  Loader2, // 确保导入 Loader2
+  Loader2,
+  Filter,
+  Users, // Icon for guests
+  Calendar, // Icon for date
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import axios from "@/lib/axios";
@@ -36,9 +39,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AddressFormModal } from "@/components/AddressFormModal";
-// AddressSkeleton不再使用，可以移除
-// import { AddressSkeleton } from "@/components/AddressSkeleton";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -47,7 +55,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/context/AuthContext";
 import { useLogout } from "@/hooks/useLogout";
 
-// Type Definitions (确保您的types文件包含了所有order字段)
+// Type Definitions
 import { Address, Order, OrderMenuItem, OrderPackageItem } from "./lib/types";
 
 // =====================================================================================
@@ -87,7 +95,7 @@ const getPaymentStatusColor = (status: string) => {
 };
 
 // =====================================================================================
-// 文件内子组件 (Internal Components for better organization)
+// 文件内子组件 (Internal Components)
 // =====================================================================================
 
 /** @brief 用于在个人资料页显示一行信息 */
@@ -110,45 +118,68 @@ const InfoRow: FC<InfoRowProps> = ({ icon: Icon, label, value }) => (
 
 /** @brief 渲染订单中单个【菜单项】的详情 */
 const OrderItemDetails: FC<{ item: OrderMenuItem }> = ({ item }) => (
-  <div className="bg-gray-50/50 rounded-lg p-3 border">
+  <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
     <div className="flex items-start gap-4">
-      <Image
-        src={getFullImageUrl(item.image_url)}
-        alt={item.menu_name}
-        width={64}
-        height={64}
-        className="flex-shrink-0 rounded-md object-cover bg-white border aspect-square"
-      />
+      <div className="relative">
+        <Image
+          src={getFullImageUrl(item.image_url)}
+          alt={item.menu_name}
+          width={64}
+          height={64}
+          className="flex-shrink-0 rounded-lg object-cover bg-white border-2 border-gray-100 aspect-square"
+        />
+        <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {item.quantity}
+        </div>
+      </div>
       <div className="flex-1">
-        <div className="flex justify-between items-start mb-1">
+        <div className="flex justify-between items-start mb-2">
           <div>
-            <h4 className="font-bold text-gray-800">{item.menu_name}</h4>
-            <p className="text-sm text-gray-500">数量: {item.quantity}</p>
+            <h4 className="font-bold text-gray-900 text-base">{item.menu_name}</h4>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                数量: {item.quantity}
+              </span>
+            </div>
           </div>
-          <span className="font-bold text-gray-800 text-right">
-            RM{Number(item.item_total).toFixed(2)}
-          </span>
+          <div className="text-right">
+            <span className="font-bold text-orange-600 text-lg">
+              RM{Number(item.item_total).toFixed(2)}
+            </span>
+          </div>
         </div>
         {(item.variants?.length > 0 || item.addons?.length > 0) && (
-          <div className="bg-orange-50/70 p-3 rounded-md text-sm text-gray-700 mt-2 space-y-2">
+          <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-100 rounded-lg p-3 text-sm mt-3">
             {item.variants?.length > 0 && (
-              <div>
-                <span className="font-semibold text-gray-800">规格:</span>
-                {item.variants.map((v) => (
-                  <div className="pl-2" key={v.id}>
-                    - {v.variant_name} (+RM{Number(v.variant_price).toFixed(2)})
-                  </div>
-                ))}
+              <div className="mb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                  <span className="font-semibold text-gray-800">规格选择</span>
+                </div>
+                <div className="space-y-1">
+                  {item.variants.map((v) => (
+                    <div className="flex justify-between items-center bg-white/70 rounded-md px-3 py-1.5" key={v.id}>
+                      <span className="text-gray-700">{v.variant_name}</span>
+                      <span className="font-medium text-orange-600">+RM{Number(v.variant_price).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {item.addons?.length > 0 && (
               <div>
-                <span className="font-semibold text-gray-800">附加项:</span>
-                {item.addons.map((a) => (
-                  <div className="pl-2" key={a.id}>
-                    - {a.addon_name} (+RM{Number(a.addon_price).toFixed(2)})
-                  </div>
-                ))}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="font-semibold text-gray-800">附加项目</span>
+                </div>
+                <div className="space-y-1">
+                  {item.addons.map((a) => (
+                    <div className="flex justify-between items-center bg-white/70 rounded-md px-3 py-1.5" key={a.id}>
+                      <span className="text-gray-700">{a.addon_name}</span>
+                      <span className="font-medium text-green-600">+RM{Number(a.addon_price).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -160,61 +191,90 @@ const OrderItemDetails: FC<{ item: OrderMenuItem }> = ({ item }) => (
 
 /** @brief 渲染订单中单个【套餐项】的详情 */
 const PackageItemDetails: FC<{ item: OrderPackageItem }> = ({ item }) => (
-  <div className="bg-gray-50/50 rounded-lg p-3 border">
+  <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
     <div className="flex items-start gap-4">
-      <Image
-        src={getFullImageUrl(item.package_image)}
-        alt={item.package_name}
-        width={64}
-        height={64}
-        className="flex-shrink-0 rounded-md object-cover bg-white border aspect-square"
-      />
-      <div className="flex-1">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h4 className="font-bold text-gray-800">{item.package_name}</h4>
-            <p className="text-sm text-gray-500">数量: {item.quantity}</p>
-          </div>
-          <span className="font-bold text-gray-800 text-right">
-            RM{Number(item.item_total).toFixed(2)}
-          </span>
+      <div className="relative">
+        <Image
+          src={getFullImageUrl(item.package_image)}
+          alt={item.package_name}
+          width={64}
+          height={64}
+          className="flex-shrink-0 rounded-lg object-cover bg-white border-2 border-gray-100 aspect-square"
+        />
+        <div className="absolute -top-1 -right-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+          {item.quantity}
         </div>
-        <div className="space-y-2">
-          {item.menus.map((pkgMenu) => (
+        <div className="absolute -bottom-1 -left-1 bg-purple-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5">
+          套餐
+        </div>
+      </div>
+      <div className="flex-1">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h4 className="font-bold text-gray-900 text-base">{item.package_name}</h4>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                数量: {item.quantity}
+              </span>
+              <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full font-medium">
+                {item.menus.length} 个菜品
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="font-bold text-orange-600 text-lg">
+              RM{Number(item.item_total).toFixed(2)}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {item.menus.map((pkgMenu, index) => (
             <div
               key={pkgMenu.id}
-              className="bg-orange-50/70 p-3 rounded-md text-sm text-gray-700"
+              className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3"
             >
-              <h5 className="font-semibold text-gray-800 mb-1">
-                {pkgMenu.menu_name}
-              </h5>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-bold text-orange-600">{index + 1}</span>
+                </div>
+                <h5 className="font-semibold text-gray-800">{pkgMenu.menu_name}</h5>
+              </div>
+              
               {(pkgMenu.variants?.length > 0 || pkgMenu.addons?.length > 0) && (
-                <>
+                <div className="pl-8 space-y-2">
                   {pkgMenu.variants?.length > 0 && (
                     <div>
-                      <span className="font-semibold text-gray-800">规格:</span>
-                      {pkgMenu.variants.map((v) => (
-                        <div className="pl-2" key={v.id}>
-                          - {v.variant_name} (+RM
-                          {Number(v.variant_price).toFixed(2)})
-                        </div>
-                      ))}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-1.5 bg-orange-400 rounded-full"></div>
+                        <span className="text-xs font-semibold text-gray-700">规格选择</span>
+                      </div>
+                      <div className="space-y-1">
+                        {pkgMenu.variants.map((v) => (
+                          <div className="flex justify-between items-center bg-white rounded-md px-2 py-1 text-xs" key={v.id}>
+                            <span className="text-gray-600">{v.variant_name}</span>
+                            <span className="font-medium text-orange-600">+RM{Number(v.variant_price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {pkgMenu.addons?.length > 0 && (
-                    <div className="mt-1">
-                      <span className="font-semibold text-gray-800">
-                        附加项:
-                      </span>
-                      {pkgMenu.addons.map((a) => (
-                        <div className="pl-2" key={a.id}>
-                          - {a.addon_name} (+RM
-                          {Number(a.addon_price).toFixed(2)})
-                        </div>
-                      ))}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                        <span className="text-xs font-semibold text-gray-700">附加项目</span>
+                      </div>
+                      <div className="space-y-1">
+                        {pkgMenu.addons.map((a) => (
+                          <div className="flex justify-between items-center bg-white rounded-md px-2 py-1 text-xs" key={a.id}>
+                            <span className="text-gray-600">{a.addon_name}</span>
+                            <span className="font-medium text-green-600">+RM{Number(a.addon_price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           ))}
@@ -224,7 +284,7 @@ const PackageItemDetails: FC<{ item: OrderPackageItem }> = ({ item }) => (
   </div>
 );
 
-/** @brief 【核心更新】渲染订单摘要信息 */
+/** @brief 渲染订单摘要信息 */
 const OrderSummary: FC<{ order: Order }> = ({ order }) => {
   const { t } = useLanguage();
 
@@ -233,7 +293,7 @@ const OrderSummary: FC<{ order: Order }> = ({ order }) => {
   } = {
     delivery: { icon: Truck, text: t("delivery") || "外卖配送" },
     pickup: { icon: Store, text: t("pickup") || "到店自取" },
-    "dine-in": { icon: HandPlatter, text: t("dine-in") || "店内用餐" },
+    "dine_in": { icon: HandPlatter, text: t("dine_in") || "店内用餐" },
   };
   const currentService = serviceMethodMap[order.service_method] || {
     icon: HandPlatter,
@@ -241,94 +301,186 @@ const OrderSummary: FC<{ order: Order }> = ({ order }) => {
   };
 
   return (
-    <div>
-      <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
-        <Receipt className="h-5 w-5 text-orange-600" /> 订单摘要
-      </h3>
-      <div className="bg-gray-50/50 rounded-lg p-4 border space-y-4 text-sm">
-        {/* --- 服务与地址 --- */}
-        <div className="flex items-start gap-3">
-          <currentService.icon className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-gray-800">{currentService.text}</p>
+    // Display Order Detail Such as delivery,pickup,dine_in
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
+        <div className="flex items-center gap-3 text-white">
+          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+            <Receipt className="h-5 w-5" />
+          </div>
+          <h3 className="text-lg font-semibold">订单摘要</h3>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Service Method */}
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 bg-orange-50 rounded-xl">
+            <currentService.icon className="h-5 w-5 text-orange-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 mb-2">{currentService.text}</p>
+            
             {order.service_method === "delivery" && (
-              <div className="text-gray-600 mt-1">
-                <p>
-                  {order.delivery_name} ({order.delivery_phone})
-                </p>
-                <p>{order.delivery_address}</p>
-                {order.delivery_building && (
-                  <p>
-                    {order.delivery_building}, {order.delivery_floor}
-                  </p>
-                )}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <div className="p-1 bg-blue-100 rounded-lg">
+                    <Users className="h-3.5 w-3.5 text-blue-600" />
+                  </div>
+                  <span>{order.delivery_name} ({order.delivery_phone})</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm text-gray-700">
+                  <div className="p-1 bg-green-100 rounded-lg mt-0.5">
+                    <MapPin className="h-3.5 w-3.5 text-green-600" />
+                  </div>
+                  <div>
+                    <p>{order.delivery_address}</p>
+                    {order.delivery_building && (
+                      <p className="text-gray-600">{order.delivery_building}, {order.delivery_floor}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
+            
             {order.service_method === "pickup" && order.pickup_time && (
-              <p className="text-gray-600 mt-1">
-                取餐时间: {new Date(order.pickup_time).toLocaleString()}
-              </p>
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="p-1.5 bg-blue-100 rounded-lg">
+                    <Clock className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <span className="text-blue-800 font-medium">
+                    取餐时间: {new Date(order.pickup_time).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {order.service_method === "dine_in" && (
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border border-orange-100">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Store className="h-3.5 w-3.5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 mb-0.5">桌号</p>
+                      <p className="font-semibold text-gray-900">{order.table_code || "N/A"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Users className="h-3.5 w-3.5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 mb-0.5">人数</p>
+                      <p className="font-semibold text-gray-900">{order.guests_count || "N/A"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Calendar className="h-3.5 w-3.5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 mb-0.5">日期</p>
+                      <p className="font-semibold text-gray-900">
+                        {order.dining_date ? new Date(order.dining_date).toLocaleDateString() : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Clock className="h-3.5 w-3.5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 mb-0.5">时间</p>
+                      <p className="font-semibold text-gray-900">
+                        {order.checkin_time && order.checkout_time 
+                          ? `${order.checkin_time} - ${order.checkout_time}` 
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* --- 支付信息 --- */}
-        <div className="flex items-start gap-3">
-          <Wallet className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-gray-800">支付方式</p>
+        {/* Payment Method */}
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 bg-blue-50 rounded-xl">
+            <Wallet className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 mb-1">支付方式</p>
             <p className="text-gray-600">{order.payment_method}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3">
-          <CreditCard className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-gray-800">支付状态</p>
-            <Badge
-              className={`text-xs ${getPaymentStatusColor(
-                order.payment_status
-              )}`}
-            >
+
+        {/* Payment Status */}
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 bg-green-50 rounded-xl">
+            <CreditCard className="h-5 w-5 text-green-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 mb-2">支付状态</p>
+            <Badge className={`text-xs ${getPaymentStatusColor(order.payment_status)}`}>
               {t(order.payment_status) || order.payment_status}
             </Badge>
           </div>
         </div>
 
-        {/* --- 特殊备注 --- */}
+        {/* Special Instructions */}
         {order.special_instructions && (
-          <div className="flex items-start gap-3">
-            <StickyNote className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-gray-800">特殊备注</p>
-              <p className="text-gray-600 whitespace-pre-wrap">
-                {order.special_instructions}
-              </p>
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 bg-yellow-50 rounded-xl">
+              <StickyNote className="h-5 w-5 text-yellow-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900 mb-2">特殊备注</p>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  {order.special_instructions}
+                </p>
+              </div>
             </div>
           </div>
         )}
+      </div>
 
-        {/* --- 费用明细 --- */}
-        <div className="pt-4 border-t border-gray-200">
-          <div className="space-y-1">
-            <div className="flex justify-between text-gray-600">
-              <span>小计</span>
-              <span>RM{Number(order.subtotal).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>配送费</span>
-              <span>RM{Number(order.delivery_fee).toFixed(2)}</span>
-            </div>
-            {Number(order.discount_amount) > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>折扣 {order.promo_code && `(${order.promo_code})`}</span>
-                <span>- RM{Number(order.discount_amount).toFixed(2)}</span>
-              </div>
-            )}
+      {/* Price Breakdown */}
+      <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-5">
+        <div className="space-y-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">小计</span>
+            <span className="font-medium text-gray-900">RM{Number(order.subtotal).toFixed(2)}</span>
           </div>
-          <hr className="my-2" />
-          <div className="flex justify-between font-bold text-gray-800">
-            <span>总计</span>
-            <span>RM{Number(order.total_amount).toFixed(2)}</span>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">配送费</span>
+            <span className="font-medium text-gray-900">RM{Number(order.delivery_fee).toFixed(2)}</span>
+          </div>
+          {Number(order.discount_amount) > 0 && (
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-green-600 flex items-center gap-2">
+                折扣 {order.promo_code && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                    {order.promo_code}
+                  </span>
+                )}
+              </span>
+              <span className="font-medium text-green-600">- RM{Number(order.discount_amount).toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="border-t border-gray-200 mt-4 pt-4">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-semibold text-gray-900">总计</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              RM{Number(order.total_amount).toFixed(2)}
+            </span>
           </div>
         </div>
       </div>
@@ -345,76 +497,91 @@ interface OrderCardProps {
 const OrderCard: FC<OrderCardProps> = ({ order, isExpanded, onToggle }) => {
   const { t } = useLanguage();
   return (
-    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm transition-all duration-300">
-      <div
-        className="flex items-start justify-between cursor-pointer"
-        onClick={onToggle}
-      >
-        <div className="flex-1">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <div className="font-medium text-gray-900">
-                {t("orderNumber")}: {order.order_number}
-              </div>
-              <div className="text-sm text-gray-500">
-                {new Date(order.created_at).toLocaleString()}
-              </div>
-            </div>
-            <Badge className={getStatusColor(order.status)}>
-              {t(order.status)}
-            </Badge>
+    // 主要的订单卡片组件（整合所有部分）
+<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm transition-all duration-300 hover:shadow-md">
+  <div
+    className="flex items-start justify-between cursor-pointer"
+    onClick={onToggle}
+  >
+    <div className="flex-1">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="font-medium text-gray-900">
+            {t("orderNumber")}: {order.order_number}
           </div>
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold text-orange-500">
-              RM{Number(order.total_amount).toFixed(2)}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>
-                {isExpanded ? t("collapseDetails") : t("viewDetails")}
-              </span>
-              <ChevronDown
-                className={`h-5 w-5 transition-transform duration-300 ${
-                  isExpanded ? "rotate-180" : ""
-                }`}
-              />
-            </div>
+          <div className="text-sm text-gray-500">
+            {new Date(order.created_at).toLocaleString()}
+          </div>
+        </div>
+        <Badge className={getStatusColor(order.status)}>
+          {t(order.status) || order.status}
+        </Badge>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+          RM{Number(order.total_amount).toFixed(2)}
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange-600 transition-colors">
+          <span>
+            {isExpanded ? t("collapseDetails") : t("viewDetails")}
+          </span>
+          <div className="p-1 rounded-full bg-gray-100 hover:bg-orange-100 transition-colors">
+            <ChevronDown
+              className={`h-4 w-4 transition-transform duration-300 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
           </div>
         </div>
       </div>
-      {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-gray-200 space-y-8">
-          <OrderSummary order={order} />
-          {order.menu_items?.length > 0 && (
-            <div>
-              <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <UtensilsCrossed className="h-5 w-5 text-orange-600" /> 菜单项
-              </h3>
-              <div className="space-y-4">
-                {order.menu_items.map((item) => (
-                  <OrderItemDetails key={`menu-${item.id}`} item={item} />
-                ))}
-              </div>
+    </div>
+  </div>
+  {isExpanded && (
+    <div className="mt-6 pt-6 border-t border-gray-200 space-y-6">
+      <OrderSummary order={order} />
+      {order.menu_items?.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <UtensilsCrossed className="h-5 w-5 text-orange-600" />
             </div>
-          )}
-          {order.package_items?.length > 0 && (
             <div>
-              <h3 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Package className="h-5 w-5 text-orange-600" /> 套餐项
-              </h3>
-              <div className="space-y-4">
-                {order.package_items.map((item) => (
-                  <PackageItemDetails key={`pkg-${item.id}`} item={item} />
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900">菜单项</h3>
+              <p className="text-sm text-gray-500">{order.menu_items.length} 个菜品</p>
             </div>
-          )}
+          </div>
+          <div className="space-y-3">
+            {order.menu_items.map((item) => (
+              <OrderItemDetails key={`menu-${item.id}`} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+      {order.package_items?.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Package className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">套餐项</h3>
+              <p className="text-sm text-gray-500">{order.package_items.length} 个套餐</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {order.package_items.map((item) => (
+              <PackageItemDetails key={`pkg-${item.id}`} item={item} />
+            ))}
+          </div>
         </div>
       )}
     </div>
+  )}
+</div>
   );
 };
 
-// ** 新增的 LoadingOverlay 组件 **
+/** @brief 加载覆盖层组件 */
 interface LoadingOverlayProps {
   title?: string;
   description?: string;
@@ -481,6 +648,11 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addressToEdit, setAddressToEdit] = useState<Address | null>(null);
@@ -500,13 +672,13 @@ export default function ProfilePage() {
       setOrders(response.data || []);
     } catch (error) {
       console.error("获取订单失败:", error);
-      const e = "无法加载订单记录。";
+      const e = t("errorFetchingOrders") || "无法加载订单记录。";
       setOrdersError(e);
       toast.error(e);
     } finally {
       setIsLoadingOrders(false);
     }
-  }, []);
+  }, [t]);
 
   const fetchAddresses = useCallback(async () => {
     setIsLoadingAddresses(true);
@@ -528,6 +700,44 @@ export default function ProfilePage() {
     if (activeTab === "addresses") fetchAddresses();
     if (activeTab === "orders") fetchOrders();
   }, [activeTab, fetchAddresses, fetchOrders]);
+
+  useEffect(() => {
+    let tempOrders = [...orders];
+
+    if (statusFilter !== "all") {
+      tempOrders = tempOrders.filter((order) => order.status === statusFilter);
+    }
+
+    if (dateFilter !== "all") {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (dateFilter) {
+        case "today":
+          tempOrders = tempOrders.filter((order) => {
+            const orderDate = new Date(order.created_at);
+            return orderDate >= today;
+          });
+          break;
+        case "week":
+          const lastWeek = new Date(today);
+          lastWeek.setDate(today.getDate() - 7);
+          tempOrders = tempOrders.filter(
+            (order) => new Date(order.created_at) >= lastWeek
+          );
+          break;
+        case "month":
+          const lastMonth = new Date(today);
+          lastMonth.setMonth(today.getMonth() - 1);
+          tempOrders = tempOrders.filter(
+            (order) => new Date(order.created_at) >= lastMonth
+          );
+          break;
+      }
+    }
+
+    setFilteredOrders(tempOrders);
+  }, [orders, statusFilter, dateFilter]);
 
   const handleSetDefault = (addressId: number) =>
     setConfirmationState({
@@ -906,10 +1116,86 @@ export default function ProfilePage() {
               <TabsContent value="orders">
                 <Card className="shadow-2xl bg-white/95 backdrop-blur-sm border-0 rounded-3xl overflow-hidden">
                   <CardHeader className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-                    <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-orange-500" />
-                      {t("orders")}
-                    </CardTitle>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-orange-500" />
+                        {t("orders")}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Select
+                          value={statusFilter}
+                          onValueChange={setStatusFilter}
+                        >
+                          <SelectTrigger className="w-full sm:w-[160px] rounded-xl bg-white hover:bg-orange-50 border-orange-500 cursor-pointer">
+                            <SelectValue
+                              placeholder={t("filterStatus") || "Filter Status"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white/90 backdrop-blur-sm border-orange-200 rounded-2xl shadow-lg p-2">
+                            <SelectItem
+                              value="all"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("All Status") || "All Status"}
+                            </SelectItem>
+                            <SelectItem
+                              value="pending"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("pending") || "Pending"}
+                            </SelectItem>
+                            <SelectItem
+                              value="completed"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("completed") || "Completed"}
+                            </SelectItem>
+                            <SelectItem
+                              value="cancelled"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("cancelled") || "Cancelled"}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={dateFilter}
+                          onValueChange={setDateFilter}
+                        >
+                          <SelectTrigger className="w-full sm:w-[160px] rounded-xl bg-white hover:bg-orange-50 border-orange-500 cursor-pointer">
+                            <SelectValue
+                              placeholder={t("filterDate") || "Filter Date"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white/90 backdrop-blur-sm border-orange-200 rounded-2xl shadow-lg p-2">
+                            <SelectItem
+                              value="all"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("AllTime") || "All Time"}
+                            </SelectItem>
+                            <SelectItem
+                              value="today"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("today") || "Today"}
+                            </SelectItem>
+                            <SelectItem
+                              value="week"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("thisWeek") || "This Week"}
+                            </SelectItem>
+                            <SelectItem
+                              value="month"
+                              className="rounded-lg focus:bg-orange-100 data-[state=checked]:bg-gradient-to-r from-orange-500 to-red-500 data-[state=checked]:text-white cursor-pointer"
+                            >
+                              {t("thisMonth") || "This Month"}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="bg-gray-50 rounded-2xl p-6 space-y-4">
@@ -922,8 +1208,8 @@ export default function ProfilePage() {
                           <AlertCircle className="h-8 w-8 mb-2" />
                           <p>{ordersError}</p>
                         </div>
-                      ) : orders.length > 0 ? (
-                        orders.map((order) => (
+                      ) : filteredOrders.length > 0 ? (
+                        filteredOrders.map((order) => (
                           <OrderCard
                             key={order.id}
                             order={order}
@@ -937,7 +1223,10 @@ export default function ProfilePage() {
                         ))
                       ) : (
                         <div className="text-center text-gray-500 p-8">
-                          <p>{t("noOrderHistory")}</p>
+                          <p>
+                            {t("noOrdersMatchFilters") ||
+                              "No orders match the selected filters."}
+                          </p>
                         </div>
                       )}
                     </div>

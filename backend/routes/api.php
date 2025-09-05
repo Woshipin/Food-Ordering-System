@@ -172,8 +172,8 @@ Route::middleware('api')->group(function () {
         // URL前缀: /api/orders
         // 控制器: OrderController
         Route::controller(OrderController::class)->prefix('orders')->group(function () {
-            Route::post('/add', 'store');   // 创建新订单
             Route::get('/', 'index');       // 获取用户历史订单列表
+            Route::post('/add', 'store');   // 创建新订单
             Route::get('/{order}', 'show'); // 获取单个订单的详细信息
         });
     });

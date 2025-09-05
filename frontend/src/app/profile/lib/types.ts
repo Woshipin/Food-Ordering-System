@@ -68,9 +68,9 @@ export interface Order {
   total_amount: number;
   menu_items: OrderMenuItem[];
   package_items: OrderPackageItem[];
-  
+
   // Fields for OrderSummary Component
-  service_method: 'delivery' | 'pickup' | 'dine-in';
+  service_method: 'delivery' | 'pickup' | 'dine_in';
   payment_method: string;
   payment_status: 'paid' | 'unpaid';
   special_instructions?: string | null;
@@ -88,4 +88,14 @@ export interface Order {
 
   // Fields for Pickup
   pickup_time?: string | null;
+
+  // MODIFICATION START: Fields for Dine-In
+  requires_table?: boolean;
+  table_id?: number;
+  table_code?: string;
+  dining_date?: string; // e.g., "2025-09-03"
+  checkin_time?: string; // e.g., "10:00:00"
+  checkout_time?: string; // e.g., "11:00:00"
+  guests_count?: number;
+  // MODIFICATION END
 }

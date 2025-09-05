@@ -288,18 +288,18 @@ class OrderController extends Controller
     /**
      * Display the specified order.
      */
-    public function show(Order $order)
-    {
-        $user = auth('api')->user();
-        if ($order->user_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $order->load([
-            'menuItems.addons',
-            'menuItems.variants',
-            'packageItems.menus.addons',
-            'packageItems.menus.variants',
-        ]);
-        return response()->json($order);
-    }
+    // public function show(Order $order)
+    // {
+    //     $user = auth('api')->user();
+    //     if ($order->user_id !== $user->id) {
+    //         return response()->json(['message' => 'Unauthorized'], 403);
+    //     }
+    //     $order->load([
+    //         'menuItems.addons',
+    //         'menuItems.variants',
+    //         'packageItems.menus.addons',
+    //         'packageItems.menus.variants',
+    //     ]);
+    //     return response()->json($order);
+    // }
 }
