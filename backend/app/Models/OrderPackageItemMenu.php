@@ -45,6 +45,14 @@ class OrderPackageItemMenu extends Model
     }
 
     /**
+     * Get the menu that this item refers to.
+     */
+    public function menu(): BelongsTo
+    {
+        return $this->belongsTo(Menu::class);
+    }
+
+    /**
      * Get all of the addons for this menu.
      */
     public function addons(): HasMany

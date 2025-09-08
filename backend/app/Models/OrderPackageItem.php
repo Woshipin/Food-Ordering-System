@@ -47,6 +47,14 @@ class OrderPackageItem extends Model
     }
 
     /**
+     * Get the package that this item refers to.
+     */
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(MenuPackage::class, 'menu_package_id');
+    }
+
+    /**
      * Get all of the menus for the package item.
      */
     public function menus(): HasMany
