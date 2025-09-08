@@ -24,6 +24,7 @@ export interface HomeData {
   hero_description: string;               // 英雄区描述文本
   order_now_button_text: string;          // "立即下单" 按钮文本
   view_menu_button_text: string;          // "查看菜单" 按钮文本
+  hero_background_image?: string;         // 英雄区背景图片 URL (可选)
   
   // --- Stats Section (统计数据区) ---
   stats_satisfied_customers_text: string; // "满意顾客" 标签文本

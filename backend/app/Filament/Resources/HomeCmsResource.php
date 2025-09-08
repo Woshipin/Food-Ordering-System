@@ -73,7 +73,18 @@ class HomeCmsResource extends Resource
                             Textarea::make('hero_description_zh')->label('Description (ZH)'),
                             Textarea::make('hero_description_ms')->label('Description (MS)'),
                         ]),
-                        FileUpload::make('hero_background_image')->image()->label('Background Image'),
+                        FileUpload::make('hero_background_image')
+                            ->image()
+                            ->label('Background Image')
+                            ->imageEditor()
+                            ->panelLayout('integrated')
+                            ->deletable(true)
+                            ->directory('cms/home')
+                            ->disk('public')
+                            ->openable()
+                            ->downloadable()
+                            ->previewable(true)
+                            ->acceptedFileTypes(['image/*']),
 
                         Grid::make(3)->schema([
                             TextInput::make('order_now_button_text_en')->label('Order Now Button (EN)'),

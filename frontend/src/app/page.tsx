@@ -32,6 +32,7 @@ import { Badge } from "../components/ui/badge";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { ClipLoader } from "react-spinners";
 import { LoadingOverlay } from "../components/LoadingOverlay"; // <--- 新增：导入加载组件
+import { Typewriter } from "./components/Typewriter";
 
 // --- 自定义Hooks和上下文 (Custom Hooks & Context) ---
 import { useLanguage } from "../components/LanguageProvider";
@@ -60,6 +61,9 @@ export default function HomePage() {
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [cartItems, setCartItems] = useState<{ [key: number]: number }>({});
   const [loading, setLoading] = useState(true); // <--- 新增：CMS内容加载状态
+  const [showButtons, setShowButtons] = useState(false);
+  const [isTitleComplete, setIsTitleComplete] = useState(false);
+  const [isDescriptionComplete, setIsDescriptionComplete] = useState(false);
 
   // --- 数据获取 (Data Fetching) ---
   useEffect(() => {
@@ -76,6 +80,15 @@ export default function HomePage() {
     };
     fetchHomeData();
   }, [language]);
+
+  useEffect(() => {
+    if (isTitleComplete && isDescriptionComplete) {
+      const timer = setTimeout(() => {
+        setShowButtons(true);
+      }, 300); // 文本显示完毕后稍作延迟再显示按钮
+      return () => clearTimeout(timer);
+    }
+  }, [isTitleComplete, isDescriptionComplete]);
 
   // --- 模拟数据初始化 (Mock Data Initialization) ---
   const featuredItems = getFeaturedItems(t);
@@ -112,7 +125,7 @@ export default function HomePage() {
 
   // --- 渲染逻辑 (Render Logic) ---
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
+    <div className="min-h-screen bg-black">
       {/* ==================== 页头 (Header) ==================== */}
       <header className="fixed top-0 w-full z-40 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 shadow-2xl">
         <div className="w-full px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
@@ -274,31 +287,96 @@ export default function HomePage() {
         <>
           <main className="pt-20 sm:pt-24">
             {/* --- 英雄区 (Hero Section) --- */}
-            <section className="relative py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
-              <div className="w-full max-w-none text-center">
-                <div className="max-w-6xl mx-auto">
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6">
-                    <span className="text-orange-500 block">{homeData?.hero_main_title || t("heroSubtitle")}</span>
-                  </h2>
-                  <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-4xl mx-auto">
-                    {homeData?.hero_description || t("heroDescription")}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Link href="/menu">
-                      <Button size="lg" className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                        <ShoppingCart className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
-                        {homeData?.order_now_button_text || t("orderNow")}
-                      </Button>
-                    </Link>
-                    <Link href="/menu">
-                      <Button size="lg" variant="outline" className="text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 bg-white/80 backdrop-blur-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                        {homeData?.view_menu_button_text || t("viewMenu")}
-                      </Button>
-                    </Link>
+            <div
+              className="relative min-h-screen"
+              style={
+                homeData?.hero_background_image
+                  ? {
+                      backgroundImage: `url(${process.env.NEXT_PUBLIC_BACKEND_URL}/storage/${homeData.hero_background_image})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : { backgroundColor: "black" }
+              }
+            >
+              {/* --- 遮罩层 (Overlay) --- */}
+              {/* {homeData?.hero_background_image && (
+                <div className="absolute inset-0 bg-black bg-opacity-50" />
+              )} */}
+
+              <section className="relative flex items-center justify-center min-h-screen py-12 sm:py-16 lg:py-20 px-3 sm:px-4 lg:px-6">
+                <div className="w-full max-w-none text-center">
+                  <div className="max-w-6xl mx-auto">
+                    <h2
+                      className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 ${
+                        homeData?.hero_background_image
+                          ? "text-white"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      <span
+                        className={
+                          homeData?.hero_background_image
+                            ? "text-white"
+                            : "text-orange-500 block"
+                        }
+                      >
+                        <Typewriter
+                          text={homeData?.hero_main_title || t("heroSubtitle")}
+                          speed={50}
+                          onComplete={() => setIsTitleComplete(true)}
+                        />
+                      </span>
+                    </h2>
+                    <div>
+                      {isTitleComplete && (
+                        <p
+                          className={`text-base sm:text-lg lg:text-xl xl:text-2xl mb-6 sm:mb-8 max-w-4xl mx-auto ${
+                            homeData?.hero_background_image
+                              ? "text-white"
+                              : "text-white"
+                          }`}
+                        >
+                          <Typewriter
+                            text={
+                              homeData?.hero_description ||
+                              t("heroDescription")
+                            }
+                            speed={25}
+                            onComplete={() => setIsDescriptionComplete(true)}
+                          />
+                        </p>
+                      )}
+                    </div>
+
+                    <div
+                      className={`transition-opacity duration-500 ${
+                        showButtons ? "opacity-100" : "opacity-0"
+                      } flex flex-col sm:flex-row gap-4 justify-center`}
+                    >
+                      <Link href="/menu">
+                        <Button
+                          size="lg"
+                          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                        >
+                          <ShoppingCart className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
+                          {homeData?.order_now_button_text || t("orderNow")}
+                        </Button>
+                      </Link>
+                      <Link href="/menu">
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="text-base sm:text-lg lg:text-xl px-8 sm:px-10 py-4 sm:py-6 bg-white/80 backdrop-blur-sm border-2 border-orange-500 text-orange-600 hover:bg-orange-50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                        >
+                          {homeData?.view_menu_button_text || t("viewMenu")}
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
             
             {/* --- 统计数据区 (Stats Section) --- */}
             <section className="py-12 sm:py-16 lg:py-20 bg-white px-3 sm:px-4 lg:px-6">
@@ -367,13 +445,13 @@ export default function HomePage() {
                         </div>
                         <Link href={`/menu/${item.id}`}>
                           <div className="absolute inset-0 p-4 flex items-center justify-center">
-                            <Image
+                            {/* <Image
                               src={item.image || "/placeholder.svg"}
                               alt={item.name}
                               width={400}
                               height={300}
                               className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300 cursor-pointer shadow-lg"
-                            />
+                            /> */}
                           </div>
                         </Link>
                       </div>
@@ -461,7 +539,7 @@ export default function HomePage() {
             </section>
 
             {/* --- 联系信息区 (Contact Info Section) --- */}
-            <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-gray-900 to-black text-white px-3 sm:px-4 lg:px-6">
+            <section className="bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white py-12 sm:py-16 px-3 sm:px-4 lg:px-6 relative overflow-hidden">
               <div className="w-full max-w-none">
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 text-center">
                   <div className="flex flex-col items-center bg-white/5 backdrop-blur-sm p-6 sm:p-8 rounded-3xl border border-white/10 shadow-lg shadow-white/5">
@@ -491,7 +569,8 @@ export default function HomePage() {
           </main>
     
           {/* ==================== 页脚 (Footer) ==================== */}
-          <footer className="bg-gradient-to-br from-gray-800 to-gray-900 text-white py-8 sm:py-12 px-3 sm:px-4 lg:px-6">
+          <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white py-12 sm:py-16 px-3 sm:px-4 lg:px-6 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(251,146,60,0.05),transparent_70%)]" />
             <div className="w-full max-w-none text-center">
               <Link href="/" className="flex items-center justify-center space-x-3 mb-6">
                 <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-xl shadow-lg">
