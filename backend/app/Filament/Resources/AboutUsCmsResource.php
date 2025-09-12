@@ -31,7 +31,7 @@ class AboutUsCmsResource extends Resource
     // 定义一个方法，用于在导航菜单旁显示一个徽章（Badge），通常是记录总数
     public static function getNavigationBadge(): ?string
     {
-        // 返回Category模型的总记录数作为徽章内容
+        // 返回About US CMS模型的总记录数作为徽章内容
         return static::getModel()::count();
     }
 

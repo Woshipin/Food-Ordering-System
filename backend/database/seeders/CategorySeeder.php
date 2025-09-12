@@ -6,30 +6,15 @@ use Illuminate\Database\Seeder;
 
 class CategorySeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        Category::create(['name' => '主食']);
-        Category::create(['name' => '饮品']);
-        Category::create(['name' => '小吃']);
-        Category::create(['name' => '甜点']);
-        Category::create(['name' => '汤类']);
-        Category::create(['name' => '烧烤']);
-        Category::create(['name' => '海鲜']);
-        Category::create(['name' => '素食']);
-        Category::create(['name' => '套餐']);
-        Category::create(['name' => '早餐']);
-        Category::create(['name' => '午餐']);
-        Category::create(['name' => '晚餐']);
-        Category::create(['name' => '儿童餐']);
-        Category::create(['name' => '特色菜']);
-        Category::create(['name' => '面食']);
-        Category::create(['name' => '便当']);
-        Category::create(['name' => '热炒']);
-        Category::create(['name' => '异国料理']);
-        Category::create(['name' => '生食']);
-        Category::create(['name' => '冷盘']);
+        $names = [
+            '主食','饮品','小吃','甜点','汤类','烧烤','海鲜','素食','套餐',
+            '早餐','午餐','晚餐','儿童餐','特色菜','面食','便当','热炒','异国料理','生食','冷盘'
+        ];
+
+        foreach ($names as $name) {
+            Category::firstOrCreate(['name' => $name]);
+        }
     }
 }
